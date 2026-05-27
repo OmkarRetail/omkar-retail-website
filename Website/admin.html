@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard | OMKAR RETAIL VENTURES</title>
+    <meta name="description" content="Admin dashboard for candidate applications, Zepto hiring enquiries, and support requests." />
+    <meta name="robots" content="noindex,nofollow" />
+    <link rel="canonical" href="https://omkarretailventure.in/admin.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="top-strip">
+      <div class="container">
+        <span>Admin Dashboard Access</span>
+        <div class="top-links"><a href="index.html">Back to Website</a></div>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <a class="brand" href="index.html">
+          <img src="assets/images/omkar-brand.jpg" alt="OMKAR RETAIL VENTURES logo" />
+          <span>OMKAR RETAIL VENTURES</span>
+        </a>
+        <button class="nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Open navigation">Menu</button>
+      </div>
+      <nav class="site-nav" data-site-nav>
+        <div class="container">
+          <a href="index.html" data-nav-link>Home</a>
+          <a href="about.html" data-nav-link>About</a>
+          <a href="jobs.html" data-nav-link>Job Openings</a>
+          <a href="apply.html" data-nav-link>Apply</a>
+          <a href="employer-enquiry.html" data-nav-link>Zepto Hiring</a>
+          <a href="contact.html" data-nav-link>Contact</a>
+          <a href="admin.html" data-nav-link>Admin</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container">
+          <span class="badge reveal">Admin Dashboard</span>
+          <h1 class="reveal">View applications, Zepto enquiries, and support requests.</h1>
+          <p class="reveal">
+            For production, protect this page with Firebase Auth or a secure backend layer.
+          </p>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top:8px;">
+        <div class="container">
+          <div class="form-shell reveal">
+            <h2 class="section-title">Admin Access</h2>
+            <p class="section-lead">Enter your admin PIN from <code>config.js</code> to unlock dashboard.</p>
+            <form id="admin-access-form" style="margin-top:14px;" class="form-grid two">
+              <div>
+                <label for="admin-pin">Admin PIN</label>
+                <input id="admin-pin" type="password" placeholder="Enter PIN" required />
+              </div>
+              <div style="display:flex; align-items:flex-end;">
+                <button class="btn btn-primary" type="submit">Unlock Dashboard</button>
+              </div>
+            </form>
+            <p id="admin-access-note" class="note" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="admin-dashboard" hidden>
+        <div class="container">
+          <div class="card reveal">
+            <h2 class="section-title">Data Overview</h2>
+            <p id="admin-source-mode" class="section-lead">Checking data source...</p>
+            <div class="grid-4" style="margin-top:16px;">
+              <article class="card"><h3>Total Applications</h3><p id="kpi-applications">0</p></article>
+              <article class="card"><h3>Zepto Enquiries</h3><p id="kpi-employers">0</p></article>
+              <article class="card"><h3>Contact Messages</h3><p id="kpi-contacts">0</p></article>
+              <article class="card"><h3>Support Tickets</h3><p id="kpi-supports">0</p></article>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0;">Candidate Applications</h3>
+              <button id="export-applications" class="btn btn-outline" type="button">Export CSV</button>
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Role</th>
+                    <th>Location</th>
+                    <th>Submitted</th>
+                  </tr>
+                </thead>
+                <tbody id="applications-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0;">Zepto Enquiries</h3>
+              <button id="export-employers" class="btn btn-outline" type="button">Export CSV</button>
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Contact Person</th>
+                    <th>Required</th>
+                    <th>Location</th>
+                    <th>Submitted</th>
+                  </tr>
+                </thead>
+                <tbody id="employers-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <article class="card reveal">
+              <h3 style="margin-bottom:12px;">Contact Messages</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contacts-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card reveal">
+              <h3 style="margin-bottom:12px;">Support Requests</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Issue</th>
+                      <th>Priority</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody id="supports-body"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container copyright">&copy; <span class="current-year"></span> <span data-company-name>OMKAR RETAIL VENTURES</span></div>
+    </footer>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>
+
+
+

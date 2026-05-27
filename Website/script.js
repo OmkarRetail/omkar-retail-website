@@ -1,7 +1,7 @@
 (function () {
   const defaults = {
     companyName: "OMKAR RETAIL VENTURES",
-    domain: "omkarretailventure.in",
+    domain: "omkarretailventures.in",
     industry: "Zepto Dark Store Hiring",
     location: "Bangalore, Karnataka, India",
     phone: "9986362446",
@@ -119,4 +119,5 @@
     window.gtag("config", config.analyticsMeasurementId);
   }
 })();
+
 

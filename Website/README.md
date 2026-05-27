@@ -8,7 +8,7 @@ Modern, mobile-first recruitment website built for:
 - Intern candidates
 - Zepto Dark Store candidates (OMKAR internal hiring)
 
-Domain target: `omkarretailventure.in`
+Domain target: `omkarretailventures.in`
 
 ## Pages
 
@@ -78,7 +78,7 @@ Then on GitHub:
 2. Source: Deploy from a branch
 3. Branch: `main` and `/ (root)`
 
-`CNAME` file is already added with `omkarretailventure.in`.
+`CNAME` file is already added with `omkarretailventures.in`.
 
 ## GoDaddy DNS (for GitHub Pages)
 
@@ -102,4 +102,5 @@ After propagation, enable HTTPS in GitHub Pages settings.
 - `admin.html` PIN protection is basic and suitable only as a starter.
 - For strong security, use Firebase Auth + Firestore security rules.
 - WhatsApp QR and brand image are in `assets/images/`.
+
 

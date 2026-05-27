@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact & Support | OMKAR RETAIL VENTURES</title>
+    <meta name="description" content="Contact OMKAR RETAIL VENTURES for Zepto Dark Store candidate hiring support." />
+    <link rel="canonical" href="https://omkarretailventures.in/contact.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="top-strip">
+      <div class="container">
+        <span>Contact, Support, WhatsApp</span>
+        <div class="top-links">
+          <a href="tel:9986362446" data-company-phone>9986362446</a>
+          <a data-whatsapp-link href="https://wa.me/919986362446">WhatsApp</a>
+        </div>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <a class="brand" href="index.html">
+          <img src="assets/images/omkar-brand.jpg" alt="OMKAR RETAIL VENTURES logo" />
+          <span>OMKAR RETAIL VENTURES</span>
+        </a>
+        <button class="nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Open navigation">Menu</button>
+      </div>
+      <nav class="site-nav" data-site-nav>
+        <div class="container">
+          <a href="index.html" data-nav-link>Home</a>
+          <a href="about.html" data-nav-link>About</a>
+          <a href="jobs.html" data-nav-link>Job Openings</a>
+          <a href="apply.html" data-nav-link>Apply</a>
+          <a href="employer-enquiry.html" data-nav-link>Zepto Hiring</a>
+          <a href="contact.html" data-nav-link>Contact</a>
+          <a href="admin.html" data-nav-link>Admin</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container">
+          <span class="badge reveal">Contact Page</span>
+          <h1 class="reveal">We are here to help Zepto Dark Store candidates.</h1>
+          <p class="reveal">Reach out through call, email, WhatsApp, or support form.</p>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top:8px;">
+        <div class="container grid-2">
+          <article class="card reveal">
+            <h2 class="section-title">Office Contact Details</h2>
+            <p><strong>Phone:</strong> <a href="tel:9986362446" data-company-phone>9986362446</a></p>
+            <p><strong>Email:</strong> <a href="mailto:omkarretailventure@gmail.com" data-company-email>omkarretailventure@gmail.com</a></p>
+            <p><strong>Address:</strong> <span data-company-location>Bangalore, Karnataka, India</span></p>
+            <p style="margin-top:12px;">
+              <a class="btn btn-secondary" data-whatsapp-link href="https://wa.me/919986362446">WhatsApp Us</a>
+            </p>
+            <div style="margin-top:16px; display:flex; gap:10px; flex-wrap:wrap;">
+              <a class="btn btn-outline" data-social-instagram href="https://instagram.com/" target="_blank" rel="noreferrer">Instagram</a>
+              <a class="btn btn-outline" data-social-facebook href="https://facebook.com/" target="_blank" rel="noreferrer">Facebook</a>
+              <a class="btn btn-outline" data-social-linkedin href="https://linkedin.com/" target="_blank" rel="noreferrer">LinkedIn</a>
+            </div>
+          </article>
+
+          <article class="map-frame reveal">
+            <iframe
+              title="OMKAR Office Map"
+              src="https://maps.google.com/maps?q=Bangalore%2C%20Karnataka&t=&z=13&ie=UTF8&iwloc=&output=embed"
+              width="100%"
+              height="360"
+              style="border:0;"
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"
+            ></iframe>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container grid-2">
+          <form id="contact-form" class="form-shell reveal" data-track-form>
+            <h2 class="section-title">Contact Form</h2>
+            <div class="form-grid two">
+              <div>
+                <label for="contact-name">Full Name</label>
+                <input id="contact-name" name="name" required type="text" placeholder="Your name" />
+              </div>
+              <div>
+                <label for="contact-email">Email</label>
+                <input id="contact-email" name="email" required type="email" placeholder="you@example.com" />
+              </div>
+              <div>
+                <label for="contact-phone">Phone</label>
+                <input id="contact-phone" name="phone" required type="tel" pattern="[0-9]{10}" placeholder="10-digit number" />
+              </div>
+              <div>
+                <label for="contact-subject">Subject</label>
+                <input id="contact-subject" type="text" placeholder="General enquiry" disabled value="General enquiry" />
+              </div>
+            </div>
+            <div style="margin-top:10px;">
+              <label for="contact-message">Message</label>
+              <textarea id="contact-message" name="message" required placeholder="Write your message"></textarea>
+            </div>
+            <div class="hp">
+              <label for="contact-website">Website</label>
+              <input id="contact-website" name="website" type="text" autocomplete="off" tabindex="-1" />
+            </div>
+            <div style="margin-top:16px;"><button class="btn btn-primary" type="submit">Send Message</button></div>
+            <p id="contact-note" class="note" aria-live="polite"></p>
+          </form>
+
+          <form id="support-form" class="form-shell reveal" data-track-form>
+            <h2 class="section-title">Support Form</h2>
+            <div class="form-grid two">
+              <div>
+                <label for="support-email">Account Email</label>
+                <input id="support-email" name="accountEmail" required type="email" placeholder="account@example.com" />
+              </div>
+              <div>
+                <label for="support-priority">Priority</label>
+                <select id="support-priority" name="priority" required>
+                  <option value="">Select</option>
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                </select>
+              </div>
+              <div>
+                <label for="support-issue-type">Issue Type</label>
+                <select id="support-issue-type" name="issueType" required>
+                  <option value="">Select</option>
+                  <option>Billing</option>
+                  <option>Login / Access</option>
+                  <option>Candidate Status</option>
+                  <option>Technical Issue</option>
+                </select>
+              </div>
+              <div>
+                <label for="support-call-back">Call Back Needed</label>
+                <select id="support-call-back" disabled>
+                  <option>Yes / No (captured via details)</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:10px;">
+              <label for="support-details">Support Details</label>
+              <textarea id="support-details" name="details" required placeholder="Describe the issue with required details"></textarea>
+            </div>
+            <div class="hp">
+              <label for="support-website">Website</label>
+              <input id="support-website" name="website" type="text" autocomplete="off" tabindex="-1" />
+            </div>
+            <div style="margin-top:16px;"><button class="btn btn-secondary" type="submit">Create Support Ticket</button></div>
+            <p id="support-note" class="note" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-grid">
+        <div>
+          <a class="footer-brand" href="index.html">
+            <img src="assets/images/omkar-brand.jpg" alt="OMKAR logo" />
+            <strong data-company-name>OMKAR RETAIL VENTURES</strong>
+          </a>
+          <p style="margin-top:10px;">Candidate support hub for OMKAR Zepto Dark Store hiring.</p>
+        </div>
+        <div>
+          <h4>Useful</h4>
+          <ul>
+            <li><a href="jobs.html">Jobs</a></li>
+            <li><a href="apply.html">Apply</a></li>
+            <li><a href="employer-enquiry.html">Zepto Hiring Details</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Contact</h4>
+          <ul>
+            <li><a href="tel:9986362446" data-company-phone>9986362446</a></li>
+            <li><a href="mailto:omkarretailventure@gmail.com" data-company-email>omkarretailventure@gmail.com</a></li>
+            <li data-company-location>Bangalore, Karnataka, India</li>
+          </ul>
+        </div>
+        <div>
+          <h4>WhatsApp QR</h4>
+          <img src="assets/images/whatsapp-qr.jpeg" alt="WhatsApp QR code" style="width:110px; border-radius:10px; border:1px solid var(--line);" />
+        </div>
+      </div>
+      <div class="container copyright">&copy; <span class="current-year"></span> <span data-company-name>OMKAR RETAIL VENTURES</span></div>
+    </footer>
+
+    <a class="whatsapp-float" data-whatsapp-link href="https://wa.me/919986362446" aria-label="Chat on WhatsApp">W</a>
+
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script src="forms.js"></script>
+  </body>
+</html>
+
+
+
+

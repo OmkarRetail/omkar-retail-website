@@ -3,7 +3,7 @@ window.OMKAR_SITE_CONFIG = {
   domain: "omkarretailventures.in",
   industry: "Zepto Dark Store Hiring",
   location: "Bangalore, Karnataka, India",
-  phone: "9986362446",
+  phone: "+91 9986362446",
   whatsappNumber: "919986362446",
   email: "omkarretailventure@gmail.com",
   officeAddress:

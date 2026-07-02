@@ -29,6 +29,11 @@
     localStorage.setItem(key, JSON.stringify(current));
   }
 
+  function fieldValue(form, fieldName) {
+    const field = form.elements.namedItem(fieldName);
+    return field && "value" in field ? String(field.value).trim() : "";
+  }
+
   function isSpam(form) {
     const honey = form.querySelector("[name='website']");
     if (honey && honey.value.trim()) {
@@ -37,7 +42,7 @@
 
     const startedAt = Number(form.dataset.startedAt || "0");
     const elapsed = Date.now() - startedAt;
-    if (startedAt && elapsed < 3500) {
+    if (startedAt && elapsed < 800) {
       return true;
     }
 
@@ -224,24 +229,24 @@
         return;
       }
 
-      const resumeField = document.getElementById("candidate-resume");
+      const resumeField = form.elements.namedItem("resume");
       const resumeFile = resumeField && resumeField.files ? resumeField.files[0] : null;
 
       try {
         const resume = await uploadResumeIfAvailable(resumeFile);
         const payload = {
-          fullName: form.fullName.value.trim(),
-          mobile: form.mobile.value.trim(),
-          email: form.email.value.trim(),
-          age: form.age.value.trim(),
-          gender: form.gender.value,
-          education: form.education.value.trim(),
-          experience: form.experience.value,
-          role: form.role.value.trim(),
-          currentLocation: form.currentLocation.value.trim(),
-          aadhaar: form.aadhaar.value.trim(),
-          pan: form.pan.value.trim(),
-          joinAvailability: form.joinAvailability.value,
+          fullName: fieldValue(form, "fullName"),
+          mobile: fieldValue(form, "mobile"),
+          email: fieldValue(form, "email"),
+          age: fieldValue(form, "age"),
+          gender: fieldValue(form, "gender"),
+          education: fieldValue(form, "education"),
+          experience: fieldValue(form, "experience"),
+          role: fieldValue(form, "role"),
+          currentLocation: fieldValue(form, "currentLocation"),
+          aadhaar: fieldValue(form, "aadhaar"),
+          pan: fieldValue(form, "pan"),
+          joinAvailability: fieldValue(form, "joinAvailability"),
           resumeFileName: resume.fileName,
           resumeUrl: resume.fileUrl,
           source: "website",
@@ -282,13 +287,13 @@
       }
 
       const payload = {
-        companyName: form.companyName.value.trim(),
-        contactPerson: form.contactPerson.value.trim(),
-        requirementDetails: form.requirementDetails.value.trim(),
-        employeesNeeded: form.employeesNeeded.value.trim(),
-        location: form.location.value.trim(),
-        contactNumber: form.contactNumber.value.trim(),
-        email: form.email.value.trim(),
+        companyName: fieldValue(form, "companyName"),
+        contactPerson: fieldValue(form, "contactPerson"),
+        requirementDetails: fieldValue(form, "requirementDetails"),
+        employeesNeeded: fieldValue(form, "employeesNeeded"),
+        location: fieldValue(form, "location"),
+        contactNumber: fieldValue(form, "contactNumber"),
+        email: fieldValue(form, "email"),
         submittedAt: new Date().toISOString()
       };
 
@@ -320,10 +325,10 @@
       }
 
       const payload = {
-        name: form.name.value.trim(),
-        email: form.email.value.trim(),
-        phone: form.phone.value.trim(),
-        message: form.message.value.trim(),
+        name: fieldValue(form, "name"),
+        email: fieldValue(form, "email"),
+        phone: fieldValue(form, "phone"),
+        message: fieldValue(form, "message"),
         submittedAt: new Date().toISOString()
       };
 
@@ -355,10 +360,10 @@
       }
 
       const payload = {
-        accountEmail: form.accountEmail.value.trim(),
-        issueType: form.issueType.value,
-        priority: form.priority.value,
-        details: form.details.value.trim(),
+        accountEmail: fieldValue(form, "accountEmail"),
+        issueType: fieldValue(form, "issueType"),
+        priority: fieldValue(form, "priority"),
+        details: fieldValue(form, "details"),
         submittedAt: new Date().toISOString()
       };
 

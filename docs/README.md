@@ -11,11 +11,9 @@ Domain target: `omkarretailventures.in`
 
 ## Pages
 
-- `index.html` - Home (We Are Hiring, openings, process, benefits, testimonials, partners, CTAs)
-- `about.html` - About Us (intro, vision/mission, story, services)
-- `jobs.html` - Job Openings with filters
-- `apply.html` - Candidate application form
-- `employer-enquiry.html` - Zepto hiring details page
+- `index.html` - Home + About company information
+- `apply.html` - Careers page with roles, eligibility, hiring details, and application form
+- `employee.html` - Employee support, onboarding, and culture page
 - `contact.html` - Contact + support + map + social + WhatsApp
 - `admin.html` - Admin dashboard (applications, Zepto leads, contacts, support)
 
@@ -63,7 +61,7 @@ Suggested Firestore collections used by this site:
 ## GitHub Pages Deployment
 
 ```powershell
-cd "C:\Users\Rajeshwari\Documents\Codex\2026-05-27\i-want-to-create-one-website"
+cd "C:\Users\Rajeshwari\Desktop\docs"
 git init
 git add .
 git commit -m "Launch OMKAR RETAIL VENTURES website"

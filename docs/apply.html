@@ -48,7 +48,7 @@
         <div class="container">
           <span class="badge reveal">Apply Now</span>
           <h1 class="reveal">Submit your details for Zepto Dark Store hiring.</h1>
-          <p class="reveal">Please fill all mandatory fields. Aadhaar number is optional.</p>
+          <p class="reveal">Please fill all mandatory fields. PAN is optional at application stage.</p>
         </div>
       </section>
 
@@ -100,11 +100,8 @@
                 <select id="candidate-role" name="role" required>
                   <option value="">Select Role</option>
                   <option>Zepto Dark Store Picker & Packer</option>
-                  <option>Zepto Delivery Associate</option>
-                  <option>Zepto Inventory Associate</option>
                   <option>Zepto Store Staff</option>
-                  <option>Zepto Dark Store Supervisor</option>
-                  <option>Zepto Dark Store Internship</option>
+                  <option>Zepto Inbound Executives</option>
                 </select>
               </div>
               <div>
@@ -112,8 +109,12 @@
                 <input id="candidate-location" name="currentLocation" required type="text" placeholder="Area / City" />
               </div>
               <div>
-                <label for="candidate-aadhaar">Aadhaar Number (Optional)</label>
-                <input id="candidate-aadhaar" name="aadhaar" type="text" placeholder="Optional" />
+                <label for="candidate-aadhaar">Aadhaar Number</label>
+                <input id="candidate-aadhaar" name="aadhaar" required type="text" placeholder="Enter Aadhaar number" />
+              </div>
+              <div>
+                <label for="candidate-pan">PAN Number (Optional)</label>
+                <input id="candidate-pan" name="pan" type="text" placeholder="Optional" />
               </div>
               <div>
                 <label for="candidate-resume">Resume Upload</label>

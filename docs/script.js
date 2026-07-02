@@ -15,6 +15,10 @@
     },
     analyticsMeasurementId: "",
     firebase: {},
+    googleAppsScriptWebAppUrl: "",
+    googleSheetId: "",
+    googleDriveResumeFolderId: "",
+    googleSubmitToken: "",
     web3formsAccessKey: ""
   };
 

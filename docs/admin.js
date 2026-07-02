@@ -18,6 +18,8 @@
     totalEmployers: document.getElementById("kpi-employers"),
     totalContacts: document.getElementById("kpi-contacts"),
     totalSupports: document.getElementById("kpi-supports"),
+    applicationsSheetLink: document.getElementById("open-applications-sheet"),
+    resumeFolderLink: document.getElementById("open-resume-folder"),
     applicationsBody: document.getElementById("applications-body"),
     employerBody: document.getElementById("employers-body"),
     contactsBody: document.getElementById("contacts-body"),
@@ -63,6 +65,27 @@
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
     return date.toLocaleString();
+  }
+
+  function setupGoogleAdminLinks() {
+    const sheetId = String(config.googleSheetId || "").trim();
+    const folderId = String(config.googleDriveResumeFolderId || "").trim();
+
+    if (els.applicationsSheetLink) {
+      if (sheetId) {
+        els.applicationsSheetLink.href = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+      } else {
+        els.applicationsSheetLink.hidden = true;
+      }
+    }
+
+    if (els.resumeFolderLink) {
+      if (folderId) {
+        els.resumeFolderLink.href = `https://drive.google.com/drive/folders/${folderId}`;
+      } else {
+        els.resumeFolderLink.hidden = true;
+      }
+    }
   }
 
   function toCsv(rows, headers, mapper) {
@@ -233,6 +256,7 @@
     if (els.accessForm) {
       els.accessForm.closest(".form-shell").hidden = true;
     }
+    setupGoogleAdminLinks();
     renderDashboard();
   }
 

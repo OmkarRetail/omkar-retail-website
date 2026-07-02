@@ -121,6 +121,53 @@
     return { fileName: file.name, fileUrl };
   }
 
+  function readResumeForGoogle(file) {
+    if (!file) {
+      return Promise.resolve({ fileName: "", mimeType: "", base64: "" });
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const commaIndex = result.indexOf(",");
+        resolve({
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          base64: commaIndex >= 0 ? result.slice(commaIndex + 1) : result
+        });
+      };
+      reader.onerror = () => reject(new Error("Could not read resume file."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function submitCandidateApplicationToGoogle(payload, resumeFile) {
+    const webAppUrl = String(config.googleAppsScriptWebAppUrl || "").trim();
+    if (!webAppUrl) {
+      return false;
+    }
+
+    const body = new URLSearchParams();
+    body.append(
+      "payload",
+      JSON.stringify({
+        formType: "candidateApplication",
+        submitToken: config.googleSubmitToken || "",
+        ...payload,
+        resume: await readResumeForGoogle(resumeFile)
+      })
+    );
+
+    await fetch(webAppUrl, {
+      method: "POST",
+      mode: "no-cors",
+      body
+    });
+
+    return true;
+  }
+
   async function saveRecord(collectionName, localKey, payload) {
     const firebase = await loadFirebaseClients();
 
@@ -193,12 +240,19 @@
           role: form.role.value.trim(),
           currentLocation: form.currentLocation.value.trim(),
           aadhaar: form.aadhaar.value.trim(),
+          pan: form.pan.value.trim(),
           joinAvailability: form.joinAvailability.value,
           resumeFileName: resume.fileName,
           resumeUrl: resume.fileUrl,
           source: "website",
           submittedAt: new Date().toISOString()
         };
+
+        try {
+          await submitCandidateApplicationToGoogle(payload, resumeFile);
+        } catch (googleError) {
+          console.error("Google Apps Script submit failed", googleError);
+        }
 
         await saveRecord("applications", storageKeys.applications, payload);
         await notifyAdmin("New Candidate Application", payload);

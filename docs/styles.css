@@ -278,6 +278,21 @@ img {
   pointer-events: none;
 }
 
+.culture-spotlight {
+  background:
+    radial-gradient(circle at 84% 14%, rgba(255, 210, 79, 0.3), transparent 24%),
+    radial-gradient(circle at 18% 85%, rgba(0, 190, 205, 0.24), transparent 30%),
+    linear-gradient(145deg, #2a155e 0%, #9c1373 48%, #e63d96 100%);
+  box-shadow: 0 26px 64px rgba(156, 19, 115, 0.24);
+}
+
+.culture-spotlight::before {
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.16), transparent 38%),
+    radial-gradient(circle at 22% 20%, rgba(255, 255, 255, 0.2), transparent 20%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 24px);
+}
+
 .hero-visual > * {
   position: relative;
   z-index: 1;
@@ -323,6 +338,19 @@ img {
   background: rgba(255, 255, 255, 0.1);
 }
 
+.culture-spotlight .ops-flow {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.culture-spotlight .ops-flow div {
+  min-height: 104px;
+  grid-template-columns: 1fr;
+  align-content: space-between;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
 .ops-flow strong {
   width: 38px;
   height: 38px;
@@ -332,6 +360,11 @@ img {
   color: var(--primary-deep);
   background: linear-gradient(135deg, #ffd45f, var(--accent));
   font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+.culture-spotlight .ops-flow strong {
+  color: #5b0d4e;
+  background: linear-gradient(135deg, #fff3a5, #f58abf 58%, #ffffff);
 }
 
 .ops-flow span {
@@ -644,11 +677,19 @@ th {
   display: grid;
   place-items: center;
   text-decoration: none;
-  background: #18b97b;
-  color: #fff;
-  font-size: 1.4rem;
+  background: #25d366;
+  color: transparent;
+  font-size: 0;
   border: 2px solid #fff;
   box-shadow: 0 10px 26px rgba(2, 81, 51, 0.3);
+}
+
+.whatsapp-float::before {
+  content: "";
+  width: 31px;
+  height: 31px;
+  display: block;
+  background: center / contain no-repeat url("data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23fff' d='M16.02 3.2c-7.04 0-12.76 5.62-12.76 12.54 0 2.2.6 4.34 1.72 6.22L3.2 28.8l7.08-1.74a12.94 12.94 0 0 0 5.74 1.32c7.04 0 12.76-5.62 12.76-12.54S23.06 3.2 16.02 3.2Zm0 22.96c-1.86 0-3.68-.48-5.26-1.4l-.38-.22-4.2 1.04 1.06-4.02-.26-.42a10.16 10.16 0 0 1-1.5-5.4c0-5.7 4.72-10.34 10.54-10.34s10.54 4.64 10.54 10.34-4.72 10.42-10.54 10.42Zm5.78-7.72c-.32-.16-1.86-.9-2.14-1-.28-.1-.5-.16-.7.16-.2.32-.8 1-.98 1.2-.18.22-.36.24-.68.08-.32-.16-1.34-.48-2.56-1.54-.94-.82-1.58-1.84-1.76-2.16-.18-.32-.02-.5.14-.66.14-.14.32-.36.48-.54.16-.18.22-.32.32-.54.1-.22.04-.4-.02-.56-.08-.16-.7-1.66-.96-2.28-.26-.6-.52-.52-.7-.54h-.6c-.22 0-.56.08-.84.4-.28.32-1.1 1.06-1.1 2.58s1.14 3 1.3 3.2c.16.22 2.24 3.36 5.42 4.7.76.32 1.34.52 1.8.66.76.24 1.46.2 2 .12.62-.1 1.86-.74 2.12-1.46.26-.72.26-1.34.18-1.46-.08-.14-.3-.22-.62-.38Z'/%3E%3C/svg%3E");
 }
 
 .reveal {
@@ -660,6 +701,16 @@ th {
 .reveal.visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (max-width: 520px) {
+  .culture-spotlight .ops-flow {
+    grid-template-columns: 1fr;
+  }
+
+  .culture-spotlight .ops-flow div {
+    min-height: auto;
+  }
 }
 
 @media (min-width: 760px) {

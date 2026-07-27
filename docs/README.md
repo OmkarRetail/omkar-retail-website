@@ -6,7 +6,6 @@ Modern, mobile-first recruitment website built for:
 - Store staff
 - Inbound executive candidates
 - Zepto Dark Store candidates (OMKAR internal hiring)
-  
 
 Domain target: `omkarretailventures.in`
 

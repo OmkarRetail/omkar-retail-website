@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payslip Generator | OMKAR RETAIL VENTURES</title>
+    <meta name="description" content="Generate attendance-based employee payslips." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .payroll-wrap{max-width:1180px;margin:0 auto;padding:42px 20px 72px}.payroll-intro{display:flex;justify-content:space-between;gap:28px;align-items:end;margin-bottom:26px}.payroll-intro h1{margin:8px 0;font-size:clamp(30px,5vw,48px)}.payroll-intro p{max-width:680px;color:var(--muted)}.payroll-card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:0 15px 38px rgba(20,42,30,.06)}.file-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.upload{display:block;border:1.5px dashed #a9b9a7;border-radius:12px;padding:18px;background:#f8fbf8;cursor:pointer}.upload strong,.upload small{display:block}.upload small{color:var(--muted);line-height:1.5;margin-top:5px}.upload input{display:block;width:100%;margin-top:15px;font-size:12px}.payroll-controls{display:grid;grid-template-columns:1fr 1fr auto;gap:16px;align-items:end;margin-top:22px}.payroll-controls label{font-size:13px;font-weight:700}.payroll-controls input,.payroll-controls select{display:block;width:100%;margin-top:7px;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit}.status{margin:18px 0 0;padding:12px 14px;border-radius:8px;font-size:13px;display:none}.status.info{display:block;background:#eef6ef;color:#285b34}.status.error{display:block;background:#fff0ee;color:#972f26}.result-area{display:grid;grid-template-columns:330px 1fr;gap:22px;margin-top:28px}.employee-list{max-height:700px;overflow:auto;padding:10px}.employee-list button{width:100%;border:0;border-bottom:1px solid var(--line);background:#fff;padding:13px;text-align:left;cursor:pointer}.employee-list button:hover,.employee-list button.active{background:#eff6ee}.employee-list strong,.employee-list small{display:block}.employee-list small{color:var(--muted);margin-top:3px}.slip{background:#fff;padding:36px;border:1px solid var(--line);min-height:560px}.slip-head{display:flex;justify-content:space-between;border-bottom:2px solid #2c5b36;padding-bottom:22px}.slip-brand{font-family:Sora,sans-serif;font-size:18px;color:#1c4b29}.slip-label{text-align:right;font-family:Sora,sans-serif;color:#2c5b36}.slip-label small{display:block;font-family:Manrope,sans-serif;color:var(--muted);margin-top:5px}.slip-person{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:22px 0}.slip-person small,.earning-head{display:block;color:var(--muted);font-size:10px;letter-spacing:.08em;font-weight:800}.slip-person strong{font-size:13px}.slip-tables{display:grid;grid-template-columns:1fr 1fr;gap:32px;border-top:1px solid var(--line);padding-top:20px}.earning-head{color:#2c5b36;margin-bottom:8px}.slip-row,.slip-total{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #edf0ec;font-size:13px}.slip-total{font-weight:800;color:#163d23}.net-pay{margin-top:25px;background:#214d2e;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:20px 23px}.net-pay small{display:block;color:#c9ddca;letter-spacing:.06em}.net-pay strong{font-size:25px}.note{font-size:11px;color:var(--muted);margin-top:17px}.print-action{margin-top:18px;text-align:right}@media(max-width:800px){.file-grid,.result-area,.slip-person,.slip-tables,.payroll-controls{grid-template-columns:1fr}.payroll-intro{display:block}.payroll-controls{align-items:stretch}.slip{padding:22px}}@media print{.top-strip,.site-header,.footer,.whatsapp-float,.no-print{display:none!important}.payroll-wrap{padding:0}.result-area{display:block}.employee-list{display:none}.slip{border:0;padding:0}.payroll-card,.payroll-intro{display:none}.slip-tables{gap:24px}}
+    </style>
+  </head>
+  <body>
+    <div class="top-strip"><div class="container"><span>Employee payroll workspace</span><div class="top-links"><a href="employee.html">Employee Support</a><a href="contact.html">Contact HR</a></div></div></div>
+    <header class="site-header"><div class="container nav-wrap"><a class="brand" href="index.html"><img src="assets/images/omkar-brand.jpg" alt="OMKAR RETAIL VENTURES logo" /><span>OMKAR RETAIL VENTURES</span></a></div></header>
+    <main class="payroll-wrap">
+      <div class="payroll-intro"><div><span class="badge">Payroll</span><h1>Generate employee payslips.</h1><p>Upload the attendance, employee master, and salary structure files. Payroll data is processed only in this browser and is not sent to the website.</p></div><a class="btn btn-outline no-print" href="employee.html">Back to Employees</a></div>
+      <section class="payroll-card no-print">
+        <div class="file-grid">
+          <label class="upload"><strong>1. Attendance report</strong><small>Requires employee_code, scheduled_date, current_role_name, and muster_status.</small><input id="attendanceFile" type="file" accept=".xlsx,.xls" /></label>
+          <label class="upload"><strong>2. Employee master</strong><small>Use the Employee_Shift sheet with Z ID and Salary Structure.</small><input id="masterFile" type="file" accept=".xlsx,.xls" /></label>
+          <label class="upload"><strong>3. Salary structure</strong><small>Use the original workbook containing the matching structure name.</small><input id="structureFile" type="file" accept=".xlsx,.xls" /></label>
+        </div>
+        <div class="payroll-controls"><label>Salary-cycle month<input id="cycleMonth" type="month" /></label><label>Employee<select id="employeeFilter"><option value="">Generate all eligible employees</option></select></label><button id="generateButton" class="btn btn-primary" type="button">Generate payslips</button></div>
+        <div id="status" class="status" role="status"></div>
+      </section>
+      <section id="resultArea" class="result-area" hidden><aside class="payroll-card employee-list no-print" id="employeeList"></aside><div><article class="slip" id="payslipPreview"></article><div class="print-action no-print"><button id="printButton" class="btn btn-primary" type="button">Print / Save PDF</button></div></div></section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="config.js"></script><script src="script.js"></script><script src="payslip.js"></script>
+  </body>
+</html>

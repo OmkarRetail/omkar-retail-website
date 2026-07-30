@@ -10,8 +10,8 @@
   const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));
   const escape = (value) => text(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
   const status = (message, kind = "info") => { const el = $("status"); el.textContent = message; el.className = `status ${kind}`; };
-  const excelDate = (value) => { if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate()); if (typeof value === "number") return new Date(Date.UTC(1899, 11, 30) + value * 86400000); const date = new Date(value); return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate()); };
-  const displayDate = (value) => { const date = excelDate(value); return date ? date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Not available"; };
+  const calendarDate = (value) => { if (typeof value === "number") { const parts = XLSX.SSF.parse_date_code(Math.floor(value)); return parts ? `${parts.y}-${String(parts.m).padStart(2, "0")}-${String(parts.d).padStart(2, "0")}` : ""; } if (value instanceof Date) return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`; const match = text(value).match(/^(\d{4}-\d{2}-\d{2})/); return match ? match[1] : ""; };
+  const displayDate = (value) => { const date = calendarDate(value); if (!date) return "Not available"; const [year, month, day] = date.split("-"); return `${day} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(month) - 1]} ${year}`; };
   const daysBetween = (start, end) => Math.round((end - start) / 86400000) + 1;
 
   function workbookRows(book, preferredSheet, requiredHeaders) {
@@ -98,10 +98,10 @@
       if (!month) return status("Choose the salary-cycle month (the cycle runs from the previous 21st to this month’s 20th).", "error");
       const [year, monthNumber] = month.split("-").map(Number); const start = new Date(year, monthNumber - 2, 21); const end = new Date(year, monthNumber - 1, 20); const cycleDays = daysBetween(start, end);
       const grouped = new Map();
+      const cycleStart = calendarDate(start); const cycleEnd = calendarDate(end);
       attendance.forEach((record) => {
-        const date = excelDate(record.scheduleddate); const id = text(record.employeecode);
-        if (!date || date < start || date > end || !allowedRoles.has(normal(record.currentrolename)) || !master.has(id)) return;
-        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        const dateKey = calendarDate(record.scheduleddate); const id = text(record.employeecode);
+        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !allowedRoles.has(normal(record.currentrolename)) || !master.has(id)) return;
         if (!grouped.has(id)) grouped.set(id, new Map()); const dates = grouped.get(id);
         if (!dates.has(dateKey)) dates.set(dateKey, { statuses: [], locations: [] });
         const entry = dates.get(dateKey); entry.statuses.push(text(record.musterstatus).toUpperCase()); if (text(record.storename)) entry.locations.push(text(record.storename));

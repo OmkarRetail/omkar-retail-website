@@ -28,7 +28,7 @@
     return [];
   }
 
-  async function readFile(file) { return XLSX.read(await file.arrayBuffer(), { type: "array", cellFormula: true, cellDates: true }); }
+  async function readFile(file) { return XLSX.read(await file.arrayBuffer(), { type: "array", cellFormula: true, cellDates: false }); }
 
   function structureMap(book) {
     const map = new Map();

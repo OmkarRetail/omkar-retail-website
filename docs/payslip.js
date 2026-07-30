@@ -1,57 +1,134 @@
 (function () {
-  const allowedRoles = new Set(["fribassociate","frccassociate","frshiftincharge","frloader","frpacker","frassociateparttime"]);
-  const dayValues = { P: 1, WO: 1, "A-R": 1, "F-R": 1, HD: .5, "HD-R": .5, A: 0, F: 0, L: 0, PENDING: 0 };
+  const allowedRoles = new Set(["fribassociate", "frccassociate", "frshiftincharge", "frloader", "frpacker", "frassociateparttime"]);
+  const dayValues = { P: 1, WO: 1, "A-R": 1, "F-R": 1, HD: 0.5, "HD-R": 0.5, A: 0, F: 0, L: 0, PENDING: 0 };
   const files = { attendance: null, master: null, structure: null };
-  const data = { employees: [], calculations: [] };
+  const data = { calculations: [] };
   const $ = (id) => document.getElementById(id);
   const normal = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const text = (value) => String(value ?? "").trim();
+  const firstValue = (...values) => values.find((value) => text(value)) || "";
   const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));
-  const escape = (value) => text(value).replace(/[&<>"']/g, (char) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;" })[char]);
+  const escape = (value) => text(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
   const status = (message, kind = "info") => { const el = $("status"); el.textContent = message; el.className = `status ${kind}`; };
-  const excelDate = (value) => { if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate()); if (typeof value === "number") return new Date(Date.UTC(1899, 11, 30) + value * 86400000); const d = new Date(value); return Number.isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  const excelDate = (value) => { if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate()); if (typeof value === "number") return new Date(Date.UTC(1899, 11, 30) + value * 86400000); const date = new Date(value); return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate()); };
+  const displayDate = (value) => { const date = excelDate(value); return date ? date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Not available"; };
   const daysBetween = (start, end) => Math.round((end - start) / 86400000) + 1;
+
   function workbookRows(book, preferredSheet, requiredHeaders) {
-    const name = preferredSheet && book.SheetNames.find((s) => normal(s) === normal(preferredSheet));
-    const sheetNames = name ? [name] : book.SheetNames;
-    for (const sheetName of sheetNames) { const rows = XLSX.utils.sheet_to_json(book.Sheets[sheetName], { header: 1, defval: "", raw: true }); for (let i = 0; i < Math.min(rows.length, 15); i++) { const headers = rows[i].map(normal); if (requiredHeaders.every((header) => headers.includes(normal(header)))) return rows.slice(i + 1).map((row) => Object.fromEntries(rows[i].map((header, index) => [normal(header), row[index]]))).filter((row) => Object.values(row).some((v) => text(v))); } } return [];
+    const preferred = book.SheetNames.find((sheet) => normal(sheet) === normal(preferredSheet));
+    const sheets = preferred ? [preferred] : book.SheetNames;
+    for (const sheetName of sheets) {
+      const rows = XLSX.utils.sheet_to_json(book.Sheets[sheetName], { header: 1, defval: "", raw: true });
+      for (let rowIndex = 0; rowIndex < Math.min(rows.length, 15); rowIndex++) {
+        const headers = rows[rowIndex].map(normal);
+        if (!requiredHeaders.every((header) => headers.includes(normal(header)))) continue;
+        return rows.slice(rowIndex + 1).map((row) => Object.fromEntries(rows[rowIndex].map((header, index) => [normal(header), row[index]]))).filter((row) => Object.values(row).some((value) => text(value)));
+      }
+    }
+    return [];
   }
+
   async function readFile(file) { return XLSX.read(await file.arrayBuffer(), { type: "array", cellFormula: true, cellDates: true }); }
+
   function structureMap(book) {
     const map = new Map();
     const add = (key, item) => { if (key) map.set(normal(key), item); };
     book.SheetNames.forEach((sheetName) => {
-      const sheet = book.Sheets[sheetName]; const endRow = XLSX.utils.decode_range(sheet["!ref"] || "A1").e.r + 1; const markers = [];
-      for (let r = 1; r <= endRow; r++) { const label = text(sheet[`A${r}`]?.v); const key = normal(label); if (key.startsWith("salarystucture") || key.startsWith("salarystructure") || key === "parttimesalary") markers.push({ row: r, title: label }); }
+      const sheet = book.Sheets[sheetName];
+      const endRow = XLSX.utils.decode_range(sheet["!ref"] || "A1").e.r + 1;
+      const markers = [];
+      for (let row = 1; row <= endRow; row++) {
+        const title = text(sheet[`A${row}`]?.v);
+        const key = normal(title);
+        if (key.startsWith("salarystucture") || key.startsWith("salarystructure") || key === "parttimesalary") markers.push({ row, title });
+      }
       markers.forEach((marker, index) => {
-        const next = markers[index + 1]?.row || endRow + 1; const components = {}; let hasPf = false, hasEsi = false;
-        for (let r = marker.row + 1; r < next; r++) { const label = normal(sheet[`A${r}`]?.v); const value = Number(sheet[`B${r}`]?.v || 0); if (label) components[label] = value; if (label === "pf") hasPf = true; if (label === "esi") hasEsi = true; }
-        const item = { name: marker.title, basic: components.basicsalary || 0, hra: components.hra || 0, special: components.specialallowance || 0, conveyance: components.conveyanceallowance || 0, professionalTax: components.professionaltax || 0, hasPf, hasEsi, directFixed: false };
-        item.monthlyGross = item.basic + item.hra + item.special + item.conveyance; add(marker.title, item);
+        const nextRow = markers[index + 1]?.row || endRow + 1;
+        const components = {}; let hasPf = false; let hasEsi = false;
+        for (let row = marker.row + 1; row < nextRow; row++) {
+          const label = normal(sheet[`A${row}`]?.v); const value = Number(sheet[`B${row}`]?.v || 0);
+          if (label) components[label] = value;
+          if (label === "pf") hasPf = true;
+          if (label === "esi") hasEsi = true;
+        }
+        add(marker.title, { name: marker.title, basic: components.basicsalary || 0, hra: components.hra || 0, special: components.specialallowance || 0, conveyance: components.conveyanceallowance || 0, professionalTax: components.professionaltax || 0, hasPf, hasEsi, directFixed: false });
       });
-      for (let r = 1; r <= endRow; r++) { const title = text(sheet[`A${r}`]?.v); if (!/^Stifund\s+\d+$/i.test(title)) continue; const monthlyGross = Number(sheet[`B${r}`]?.v || 0); add(title, { name: title, basic: monthlyGross, hra: 0, special: 0, conveyance: 0, professionalTax: 0, hasPf: false, hasEsi: false, directFixed: true, monthlyGross }); }
-    }); return map;
+      for (let row = 1; row <= endRow; row++) {
+        const title = text(sheet[`A${row}`]?.v); if (!/^Stifund\s+\d+$/i.test(title)) continue;
+        const monthlyGross = Number(sheet[`B${row}`]?.v || 0);
+        add(title, { name: title, basic: monthlyGross, hra: 0, special: 0, conveyance: 0, professionalTax: 0, hasPf: false, hasEsi: false, directFixed: true });
+      }
+    });
+    return map;
   }
-  function renderList() { const list = $("employeeList"); list.innerHTML = data.calculations.map((calc, index) => `<button type="button" data-index="${index}" class="${index === 0 ? "active" : ""}"><strong>${escape(calc.employee.name)}</strong><small>${escape(calc.employee.id)} · Net ${money(calc.net)}</small></button>`).join(""); list.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => { list.querySelectorAll("button").forEach((b) => b.classList.remove("active")); button.classList.add("active"); renderSlip(data.calculations[Number(button.dataset.index)]); })); }
-  function renderSlip(calc) { const c = calc; const earningRows = [[c.directFixed ? "Stifund Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join(""); const deductionRows = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("") || `<div class="slip-row"><span>No employee deductions in this structure</span><strong>${money(0)}</strong></div>`; $("payslipPreview").innerHTML = `<div class="slip-head"><div><div class="slip-brand">OMKAR RETAIL VENTURES</div><small>Employee salary statement</small></div><div class="slip-label">PAYSLIP<small>${escape(c.period)}</small></div></div><div class="slip-person"><div><small>EMPLOYEE</small><strong>${escape(c.employee.name)}</strong></div><div><small>EMPLOYEE CODE</small><strong>${escape(c.employee.id)}</strong></div><div><small>ROLE</small><strong>${escape(c.employee.role)}</strong></div><div><small>PAID DAYS</small><strong>${c.paidDays} / ${c.cycleDays}</strong></div></div><div class="slip-tables"><div><span class="earning-head">EARNINGS</span>${earningRows}${total("Gross Earnings", c.gross)}</div><div><span class="earning-head">DEDUCTIONS</span>${deductionRows}${total("Total Deductions", c.deductions)}</div></div><div class="net-pay"><div><small>NET PAYABLE</small><strong>${money(c.net)}</strong></div><div><small>SALARY CYCLE</small><strong>${escape(c.period)}</strong></div></div><p class="note">Attendance: ${c.statusSummary}. Attendance bonus is ₹500 because ${c.leaveCount === 0 ? "there are no L statuses" : "leave was recorded"}. PF and ESI are calculated from prorated fixed salary components where the selected salary structure specifies them.</p>`; }
+
+  function renderList() {
+    const list = $("employeeList");
+    list.innerHTML = data.calculations.map((calc, index) => `<button type="button" data-index="${index}" class="${index === 0 ? "active" : ""}"><strong>${escape(calc.employee.name)}</strong><small>${escape(calc.employee.id)} · Net ${money(calc.net)}</small></button>`).join("");
+    list.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => { list.querySelectorAll("button").forEach((item) => item.classList.remove("active")); button.classList.add("active"); renderSlip(data.calculations[Number(button.dataset.index)]); }));
+  }
+
   const row = (label, value) => `<div class="slip-row"><span>${label}</span><strong>${money(value)}</strong></div>`;
   const total = (label, value) => `<div class="slip-total"><span>${label}</span><strong>${money(value)}</strong></div>`;
+
+  function renderSlip(calc) {
+    const c = calc; const employee = c.employee;
+    const detail = (label, value) => `<div><small>${label}</small><strong>${escape(value || "Not available")}</strong></div>`;
+    const earnings = [[c.directFixed ? "Stifund Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
+    const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("") || `<div class="slip-row"><span>No employee deductions in this structure</span><strong>${money(0)}</strong></div>`;
+    $("payslipPreview").innerHTML = `<div class="slip-head"><div><div class="slip-brand">OMKAR RETAIL VENTURES</div><small>Employee salary statement</small></div><div class="slip-label">PAYSLIP<small>${escape(c.period)}</small></div></div><div class="slip-person">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", employee.role)}${detail("PAN", employee.pan)}${detail("UAN", employee.uan)}${detail("DATE OF JOINING", displayDate(employee.doj))}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("PF NUMBER", employee.pfNumber)}${detail("PAID DAYS", `${c.paidDays} / ${c.cycleDays}`)}</div><div class="slip-tables"><div><span class="earning-head">EARNINGS</span>${earnings}${total("Gross Earnings", c.gross)}</div><div><span class="earning-head">DEDUCTIONS</span>${deductions}${total("Total Deductions", c.deductions)}</div></div><div class="net-pay"><div><small>NET PAYABLE</small><strong>${money(c.net)}</strong></div><div><small>SALARY CYCLE</small><strong>${escape(c.period)}</strong></div></div><p class="note">Attendance statuses: ${c.statusSummary}. Attendance bonus is ${c.bonus > 0 ? "₹500 because there are no A or L statuses" : "not payable because A or L was recorded"}. Counted dates (${c.countedDates.length}): ${c.countedDates.join(", ")}. Duplicate dates are counted only once; conflicting records are blocked for review.</p>`;
+  }
+
+  function buildMasterMap(shiftRows, masterRows) {
+    const employees = new Map();
+    [...shiftRows, ...masterRows].forEach((row) => {
+      const id = text(row[normal("Z ID")]); if (!id) return;
+      const prior = employees.get(id) || {};
+      employees.set(id, { id, name: firstValue(row.name, prior.name), role: firstValue(row.role, prior.role), structure: firstValue(row[normal("Salary Structure")], prior.structure), doj: firstValue(row.doj, prior.doj), pan: firstValue(row.pan, prior.pan), uan: firstValue(row.uan, prior.uan), bank: firstValue(row.bank, prior.bank), accountNumber: firstValue(row[normal("Account number")], prior.accountNumber), pfNumber: firstValue(row[normal("PF number")], prior.pfNumber), location: firstValue(row.location, prior.location) });
+    });
+    return employees;
+  }
+
   function calculate() {
     if (!files.attendance || !files.master || !files.structure) return status("Please select all three Excel files first.", "error");
     Promise.all([readFile(files.attendance), readFile(files.master), readFile(files.structure)]).then(([attendanceBook, masterBook, structureBook]) => {
       const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]);
-      const master = workbookRows(masterBook, "Employee_Shift", ["Name", "Z ID", "Salary Structure"]);
-      const structures = structureMap(structureBook);
-      const month = $("cycleMonth").value; if (!month) return status("Choose the salary-cycle month (the cycle runs from the previous 21st to this month’s 20th).", "error");
+      const master = buildMasterMap(workbookRows(masterBook, "Employee_Shift", ["Name", "Z ID", "Salary Structure"]), workbookRows(masterBook, "Master", ["Name", "Z ID", "Salary Structure"]));
+      const structures = structureMap(structureBook); const month = $("cycleMonth").value;
+      if (!month) return status("Choose the salary-cycle month (the cycle runs from the previous 21st to this month’s 20th).", "error");
       const [year, monthNumber] = month.split("-").map(Number); const start = new Date(year, monthNumber - 2, 21); const end = new Date(year, monthNumber - 1, 20); const cycleDays = daysBetween(start, end);
-      const masters = new Map(master.map((r) => [text(r[normal("Z ID")]), { id: text(r[normal("Z ID")]), name: text(r.name), role: text(r.role), structure: text(r[normal("Salary Structure")]) }]));
-      const grouped = new Map(); attendance.forEach((r) => { const date = excelDate(r.scheduleddate); const id = text(r.employeecode); if (!date || date < start || date > end || !allowedRoles.has(normal(r.currentrolename)) || !masters.has(id)) return; if (!grouped.has(id)) grouped.set(id, []); grouped.get(id).push(text(r.musterstatus).toUpperCase()); });
-      const requested = $("employeeFilter").value; const results = []; const missingStructures = new Set(); grouped.forEach((statuses, id) => { if (requested && requested !== id) return; const employee = masters.get(id); const structure = structures.get(normal(employee.structure)); if (!structure) { missingStructures.add(employee.structure || "(blank)"); return; } const paidDays = statuses.reduce((sum, s) => sum + (dayValues[s] ?? 0), 0); const factor = paidDays / cycleDays; const basic = structure.basic * factor, hra = structure.hra * factor, special = structure.special * factor, conveyance = structure.conveyance * factor; const fixedGross = basic + hra + special + conveyance; const leaveCount = statuses.filter((s) => s === "L").length; const bonus = leaveCount === 0 ? 500 : 0; const pf = structure.hasPf ? basic * .12 : 0, esi = structure.hasEsi ? fixedGross * .0075 : 0, pt = structure.professionalTax * factor; const gross = fixedGross + bonus, deductions = pf + esi + pt; results.push({ employee, period: `${start.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })} – ${end.toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" })}`, cycleDays, paidDays, basic, hra, special, conveyance, bonus, gross, pf, esi, pt, deductions, net: gross - deductions, leaveCount, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records" }); });
-      data.calculations = results.sort((a, b) => a.employee.name.localeCompare(b.employee.name)); const filter = $("employeeFilter"); if (!filter.dataset.loaded) { [...masters.values()].sort((a,b) => a.name.localeCompare(b.name)).forEach((e) => filter.insertAdjacentHTML("beforeend", `<option value="${escape(e.id)}">${escape(e.name)} (${escape(e.id)})</option>`)); filter.dataset.loaded = "1"; }
+      const grouped = new Map();
+      attendance.forEach((record) => {
+        const date = excelDate(record.scheduleddate); const id = text(record.employeecode);
+        if (!date || date < start || date > end || !allowedRoles.has(normal(record.currentrolename)) || !master.has(id)) return;
+        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        if (!grouped.has(id)) grouped.set(id, new Map()); const dates = grouped.get(id);
+        if (!dates.has(dateKey)) dates.set(dateKey, { statuses: [], locations: [] });
+        const entry = dates.get(dateKey); entry.statuses.push(text(record.musterstatus).toUpperCase()); if (text(record.storename)) entry.locations.push(text(record.storename));
+      });
+      const requested = $("employeeFilter").value; const results = []; const missingStructures = new Set(); const conflicts = [];
+      grouped.forEach((dates, id) => {
+        if (requested && requested !== id) return;
+        const employee = master.get(id); const structure = structures.get(normal(employee.structure));
+        if (!structure) { missingStructures.add(employee.structure || "(blank)"); return; }
+        const dayEntries = [...dates.entries()].sort(([a], [b]) => a.localeCompare(b)); const conflictingDates = dayEntries.filter(([, entry]) => new Set(entry.statuses).size > 1);
+        if (conflictingDates.length) { conflicts.push(`${employee.name} (${conflictingDates.map(([date]) => date).join(", ")})`); return; }
+        const statuses = dayEntries.map(([, entry]) => entry.statuses[0]); const paidDays = statuses.reduce((sum, value) => sum + (dayValues[value] ?? 0), 0); const factor = paidDays / cycleDays;
+        const basic = structure.basic * factor, hra = structure.hra * factor, special = structure.special * factor, conveyance = structure.conveyance * factor; const fixedGross = basic + hra + special + conveyance;
+        const bonus = statuses.some((value) => value === "A" || value === "L") ? 0 : 500; const pf = structure.hasPf ? basic * 0.12 : 0, esi = structure.hasEsi ? fixedGross * 0.0075 : 0, pt = structure.professionalTax * factor; const gross = fixedGross + bonus, deductions = pf + esi + pt;
+        const locations = [...new Set(dayEntries.flatMap(([, entry]) => entry.locations))];
+        results.push({ employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleDays, paidDays, basic, hra, special, conveyance, bonus, gross, pf, esi, pt, deductions, net: gross - deductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`) });
+      });
+      data.calculations = results.sort((a, b) => a.employee.name.localeCompare(b.employee.name)); const filter = $("employeeFilter");
+      if (!filter.dataset.loaded) { [...master.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((employee) => filter.insertAdjacentHTML("beforeend", `<option value="${escape(employee.id)}">${escape(employee.name)} (${escape(employee.id)})</option>`)); filter.dataset.loaded = "1"; }
       if (!results.length) { $("resultArea").hidden = true; return status("No eligible employees were found for this cycle. Check the role names, employee codes, cycle, and salary-structure names.", "error"); }
-      $("resultArea").hidden = false; renderList(); renderSlip(results[0]); const skipped = missingStructures.size ? ` ${missingStructures.size} salary-structure reference${missingStructures.size === 1 ? " is" : "s are"} not present in the uploaded salary workbook and were skipped: ${[...missingStructures].join(", ")}.` : ""; status(`${results.length} payslip${results.length === 1 ? "" : "s"} generated for the selected salary cycle.${skipped}`);
+      $("resultArea").hidden = false; renderList(); renderSlip(results[0]);
+      const skipped = missingStructures.size ? ` ${missingStructures.size} salary-structure reference${missingStructures.size === 1 ? " is" : "s are"} not present in the uploaded salary workbook and were skipped: ${[...missingStructures].join(", ")}.` : "";
+      const conflictNote = conflicts.length ? ` ${conflicts.length} employee${conflicts.length === 1 ? " has" : "s have"} conflicting attendance records and ${conflicts.length === 1 ? "was" : "were"} blocked for review: ${conflicts.join("; ")}.` : "";
+      status(`${results.length} payslip${results.length === 1 ? "" : "s"} generated for the selected salary cycle.${skipped}${conflictNote}`);
     }).catch((error) => status(`Unable to read the files: ${error.message}`, "error"));
   }
+
   ["attendanceFile", "masterFile", "structureFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
   $("cycleMonth").value = new Date().toISOString().slice(0, 7); $("generateButton").addEventListener("click", calculate); $("printButton").addEventListener("click", () => window.print());
 })();

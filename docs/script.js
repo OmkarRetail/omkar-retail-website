@@ -3,11 +3,11 @@
     companyName: "OMKAR RETAIL VENTURES",
     domain: "omkarretailventures.in",
     industry: "Zepto Dark Store Hiring",
-    location: "Bangalore, Karnataka, India",
+    location: "Zepto Store, 1256, Gnanabharathi, Stage II, Kengeri Satellite Town, Bengaluru, Karnataka 560059",
     phone: "+91 9986362446",
     whatsappNumber: "919986362446",
     email: "omkarretailventure@gmail.com",
-    officeAddress: "OMKAR RETAIL VENTURES - Zepto Dark Store Hiring Desk, Bangalore, Karnataka, India",
+    officeAddress: "OMKAR RETAIL VENTURES - Zepto Store, 1256, Gnanabharathi, Stage II, Kengeri Satellite Town, Bengaluru, Karnataka 560059",
     social: {
       instagram: "https://instagram.com/",
       facebook: "https://facebook.com/",

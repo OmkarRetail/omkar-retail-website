@@ -251,7 +251,7 @@ img {
   margin: 16px 0 14px;
   font-family: "Sora", "Segoe UI", sans-serif;
   line-height: 1.12;
-  font-size: clamp(2.25rem, 5.8vw, 3.8rem);
+  font-size: clamp(2.1rem, 4.5vw, 3.65rem);
 }
 
 .hero p {
@@ -1347,7 +1347,7 @@ th {
 
 .combined-page .hero h1 {
   max-width: 16ch;
-  font-size: clamp(2.9rem, 6.4vw, 5.6rem);
+  font-size: clamp(2.55rem, 5.1vw, 4.65rem);
 }
 
 /* Motion layer - decorative only; no content or page behaviour is changed. */
@@ -1639,7 +1639,7 @@ body::after {
 
 .home-page .hero h1 {
   max-width: 13ch;
-  font-size: clamp(3.2rem, 7.2vw, 6.5rem);
+  font-size: clamp(2.8rem, 5.7vw, 5rem);
 }
 
 .home-page .hero-copy::after {
@@ -1657,6 +1657,32 @@ body::after {
   transform: rotate(-16deg);
   animation: hero-orbit 14s ease-in-out infinite alternate;
   pointer-events: none;
+}
+
+/* Continue the hero artwork through the shared header on every public page. */
+.site-header {
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 8% 13%, rgba(255, 159, 28, 0.19), transparent 17rem),
+    radial-gradient(circle at 93% 10%, rgba(232, 63, 142, 0.17), transparent 20rem),
+    linear-gradient(120deg, rgba(237, 245, 255, 0.95) 0%, rgba(248, 241, 255, 0.95) 55%, rgba(234, 255, 251, 0.95) 100%);
+  border-bottom-color: rgba(39, 60, 155, 0.14);
+  box-shadow: none;
+}
+
+.site-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.48), transparent 44%),
+    repeating-linear-gradient(135deg, rgba(39, 60, 155, 0.045) 0 1px, transparent 1px 24px);
+}
+
+.site-header .site-nav {
+  background-color: transparent;
 }
 
 .home-page .hero-signals {
@@ -1680,7 +1706,7 @@ body::after {
   }
 
   .home-page .hero h1 {
-    font-size: clamp(2.7rem, 14vw, 4.2rem);
+    font-size: clamp(2.45rem, 12vw, 3.65rem);
   }
 
   .home-page .hero-copy::after {

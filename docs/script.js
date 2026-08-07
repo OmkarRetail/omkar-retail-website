@@ -109,6 +109,27 @@
     revealItems.forEach((item) => item.classList.add("visible"));
   }
 
+  const motionItems = document.querySelectorAll(".card, .partner-chip, .form-shell, .map-frame, .table-wrap");
+  if ("IntersectionObserver" in window && motionItems.length) {
+    const motionObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("motion-in");
+            motionObserver.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+
+    motionItems.forEach((item, index) => {
+      item.classList.add("motion-item");
+      item.style.setProperty("--motion-delay", `${(index % 5) * 70}ms`);
+      motionObserver.observe(item);
+    });
+  }
+
   if (config.analyticsMeasurementId) {
     const script = document.createElement("script");
     script.async = true;

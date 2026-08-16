@@ -26,9 +26,8 @@
     <main>
       <section class="hero onboarding-hero">
         <div class="container">
-          <span class="badge reveal">Employee onboarding</span>
-          <h1 class="reveal">Create your account and complete your joining details.</h1>
-          <p class="reveal">Your profile is visible only to you and authorised Omkar Retail Ventures administrators. Identity documents are collected separately through the private HR Drive process.</p>
+          <span class="badge reveal">Employee access</span>
+          <h1 class="reveal">Login or sign up to manage your joining details.</h1>
         </div>
       </section>
 
@@ -36,8 +35,8 @@
         <div class="container">
           <div id="auth-panel" class="form-shell reveal onboarding-shell">
             <div class="form-switch" role="tablist" aria-label="Account options">
-              <button id="show-signup" class="form-switch-button active" type="button" role="tab" aria-selected="true">Create account</button>
-              <button id="show-signin" class="form-switch-button" type="button" role="tab" aria-selected="false">Sign in</button>
+              <button id="show-signup" class="form-switch-button active" type="button" role="tab" aria-selected="true">Sign up</button>
+              <button id="show-signin" class="form-switch-button" type="button" role="tab" aria-selected="false">Login</button>
             </div>
 
             <form id="signup-form" class="form-grid two" novalidate>
@@ -117,6 +116,10 @@
                 <input id="employee-dob" name="dateOfBirth" type="date" required />
               </div>
               <div>
+                <label for="employee-doj">Date of joining</label>
+                <input id="employee-doj" name="dateOfJoining" type="date" required />
+              </div>
+              <div>
                 <label for="employee-marital-status">Marital status</label>
                 <select id="employee-marital-status" name="maritalStatus" required>
                   <option value="">Select</option>
@@ -167,7 +170,7 @@
 
               <div class="document-guidance full-span">
                 <strong>Documents are collected separately.</strong>
-                <p>After saving your profile, submit Aadhaar, PAN, and your photo through the private Google Drive form shared by HR. Do not send identity documents by email or WhatsApp.</p>
+                <p>Please submit the required documents through the secure form shared by HR.</p>
               </div>
 
               <div class="full-span form-action">

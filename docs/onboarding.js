@@ -101,6 +101,7 @@
     setFormValue("submittedEmployeeId", profile?.submittedEmployeeId || profile?.employeeId);
     setFormValue("personalEmail", profile?.personalEmail || signedInUser.email || profile?.email);
     setFormValue("dateOfBirth", profile?.dateOfBirth);
+    setFormValue("dateOfJoining", profile?.dateOfJoining);
     setFormValue("maritalStatus", profile?.maritalStatus);
     setFormValue("emergencyContactName", profile?.emergencyContactName);
     setFormValue("emergencyContactMobile", profile?.emergencyContactMobile);
@@ -226,6 +227,7 @@
         fullName: getFormValue("fullName"),
         mobile,
         dateOfBirth: getFormValue("dateOfBirth"),
+        dateOfJoining: getFormValue("dateOfJoining"),
         maritalStatus: getFormValue("maritalStatus"),
         emergencyContactName: getFormValue("emergencyContactName"),
         emergencyContactMobile: emergencyMobile,
@@ -248,7 +250,7 @@
       }
       await services.fs.setDoc(services.fs.doc(services.db, "employeeProfiles", signedInUser.uid), payload, { merge: true });
       await loadProfile();
-      showNote(els.onboardingNote, "Your onboarding details have been saved and sent for HR review. HR will share the separate secure document-upload link.", "success");
+      showNote(els.onboardingNote, "Your details are pending HR review.", "success");
     } catch (error) {
       console.error("Onboarding save failed", error);
       showNote(els.onboardingNote, "Unable to save your onboarding details. Please try again or contact HR.", "error");

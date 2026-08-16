@@ -60,6 +60,8 @@
     const signup = mode === "signup";
     els.signupForm.hidden = !signup;
     els.signinForm.hidden = signup;
+    els.signupForm.style.display = signup ? "grid" : "none";
+    els.signinForm.style.display = signup ? "none" : "grid";
     els.showSignup.classList.toggle("active", signup);
     els.showSignin.classList.toggle("active", !signup);
     els.showSignup.setAttribute("aria-selected", String(signup));

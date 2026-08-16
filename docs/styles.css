@@ -1685,6 +1685,18 @@ body::after {
   background-color: transparent;
 }
 
+.site-nav .login-link {
+  color: #fff;
+  background: linear-gradient(135deg, #273c9b, #7d3d9d);
+  box-shadow: 0 8px 18px rgba(39, 60, 155, 0.18);
+}
+
+.site-nav .login-link:hover,
+.site-nav .login-link:focus-visible {
+  color: #fff;
+  background: linear-gradient(135deg, #1f2f80, #a33171);
+}
+
 .home-page .hero-signals {
   position: relative;
   z-index: 1;

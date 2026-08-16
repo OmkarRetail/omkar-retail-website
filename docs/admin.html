@@ -32,7 +32,6 @@
           <a href="index.html" data-nav-link>Home</a>
           <a href="apply.html" data-nav-link>Careers</a>
           <a href="contact.html" data-nav-link>Contact</a>
-          <a href="admin.html" data-nav-link>Admin</a>
         </div>
       </nav>
     </header>
@@ -40,26 +39,29 @@
     <main>
       <section class="hero">
         <div class="container">
-          <span class="badge reveal">Admin Dashboard</span>
-          <h1 class="reveal">View applications, Zepto enquiries, and support requests.</h1>
-          <p class="reveal">
-            For production, protect this page with Firebase Auth or a secure backend layer.
-          </p>
+          <span class="badge reveal">Admin Login</span>
+          <h1 class="reveal">Sign in to access the Omkar Retail Ventures dashboard.</h1>
+          <p class="reveal">Use your administrator credentials to view applications and support requests.</p>
         </div>
       </section>
 
       <section class="section" style="padding-top:8px;">
         <div class="container">
           <div class="form-shell reveal">
-            <h2 class="section-title">Admin Access</h2>
-            <p class="section-lead">Enter your admin PIN to access the dashboard.</p>
+            <h2 class="section-title">Login</h2>
+            <p class="section-lead">Sign in with your authorised email address and password to access the dashboard.</p>
             <form id="admin-access-form" style="margin-top:14px;" class="form-grid two">
               <div>
-                <label for="admin-pin">Admin PIN</label>
-                <input id="admin-pin" type="password" placeholder="Enter PIN" required />
+                <label for="admin-email">Email address</label>
+                <input id="admin-email" type="email" placeholder="Enter email address" autocomplete="username" required />
               </div>
-              <div style="display:flex; align-items:flex-end;">
-                <button class="btn btn-primary" type="submit">Unlock Dashboard</button>
+              <div>
+                <label for="admin-pin">Password</label>
+                <input id="admin-pin" type="password" placeholder="Enter password" autocomplete="current-password" required />
+              </div>
+              <div style="display:flex; align-items:flex-end; grid-column:1 / -1;">
+                <button class="btn btn-primary" type="submit">Login</button>
+                <button id="admin-reset-password" class="btn btn-outline" type="button" style="margin-left:10px;">Forgot Password?</button>
               </div>
             </form>
             <p id="admin-access-note" class="note" aria-live="polite"></p>
@@ -70,7 +72,10 @@
       <section class="section" id="admin-dashboard" hidden>
         <div class="container">
           <div class="card reveal">
-            <h2 class="section-title">Data Overview</h2>
+            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <h2 class="section-title" style="margin-bottom:0;">Data Overview</h2>
+              <button id="admin-logout" class="btn btn-outline" type="button">Logout</button>
+            </div>
             <p id="admin-source-mode" class="section-lead">Checking data source...</p>
             <div style="margin-top:16px;">
               <h3 style="margin:0 0 8px;">Google Admin Links</h3>

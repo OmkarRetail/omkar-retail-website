@@ -8,11 +8,17 @@
   };
 
   let firebaseLoaded = false;
+  let firebaseApp = null;
+  let firebaseAuth = null;
+  let dashboardRendered = false;
 
   const els = {
     accessForm: document.getElementById("admin-access-form"),
+    emailInput: document.getElementById("admin-email"),
     pinInput: document.getElementById("admin-pin"),
     accessNote: document.getElementById("admin-access-note"),
+    resetPassword: document.getElementById("admin-reset-password"),
+    logout: document.getElementById("admin-logout"),
     dashboard: document.getElementById("admin-dashboard"),
     totalApplications: document.getElementById("kpi-applications"),
     totalEmployers: document.getElementById("kpi-employers"),
@@ -25,6 +31,39 @@
     contactsBody: document.getElementById("contacts-body"),
     supportBody: document.getElementById("supports-body")
   };
+
+  function getFirebaseConfig() {
+    const fb = config.firebase || {};
+    const required = ["apiKey", "authDomain", "projectId", "storageBucket", "appId"];
+    if (!required.every((key) => Boolean(fb[key]))) {
+      throw new Error("Firebase is not configured.");
+    }
+    return fb;
+  }
+
+  async function getFirebaseApp() {
+    if (firebaseApp) return firebaseApp;
+    const fb = getFirebaseConfig();
+    const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+    firebaseApp = getApps()[0] || initializeApp(fb);
+    return firebaseApp;
+  }
+
+  async function getFirebaseAuth() {
+    if (firebaseAuth) return firebaseAuth;
+    const [app, authMod] = await Promise.all([
+      getFirebaseApp(),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
+    ]);
+    firebaseAuth = authMod.getAuth(app);
+    return firebaseAuth;
+  }
+
+  function showAccessNote(message, type) {
+    if (!els.accessNote) return;
+    els.accessNote.textContent = message;
+    els.accessNote.className = `note ${type || ""}`.trim();
+  }
 
   function readLocal(key) {
     try {
@@ -150,20 +189,11 @@
   }
 
   async function loadFirebaseData() {
-    const fb = config.firebase || {};
-    const required = ["apiKey", "authDomain", "projectId", "storageBucket", "appId"];
-    const ready = required.every((key) => Boolean(fb[key]));
-    if (!ready) {
-      return null;
-    }
-
     try {
-      const [{ initializeApp }, firestoreMod] = await Promise.all([
-        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+      const [app, firestoreMod] = await Promise.all([
+        getFirebaseApp(),
         import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")
       ]);
-
-      const app = initializeApp(fb, "adminView");
       const db = firestoreMod.getFirestore(app);
 
       async function getCollection(name) {
@@ -250,6 +280,8 @@
   }
 
   function unlockDashboard() {
+    if (dashboardRendered) return;
+    dashboardRendered = true;
     if (els.dashboard) {
       els.dashboard.hidden = false;
     }
@@ -264,19 +296,58 @@
     return;
   }
 
-  els.accessForm.addEventListener("submit", (event) => {
+  els.accessForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const pin = (els.pinInput?.value || "").trim();
-    const expected = String(config.adminPin || "1234");
+    const email = (els.emailInput?.value || "").trim();
+    const password = els.pinInput?.value || "";
+    showAccessNote("Signing in...");
 
-    if (pin !== expected) {
-      if (els.accessNote) {
-        els.accessNote.textContent = "Invalid PIN. Try again.";
-        els.accessNote.className = "note error";
-      }
-      return;
+    try {
+      const [auth, authMod] = await Promise.all([
+        getFirebaseAuth(),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
+      ]);
+      await authMod.signInWithEmailAndPassword(auth, email, password);
+      showAccessNote("");
+      unlockDashboard();
+    } catch (error) {
+      console.error("Admin sign-in failed", error);
+      showAccessNote("Incorrect email address or password. Try again.", "error");
     }
-
-    unlockDashboard();
   });
+
+  if (els.resetPassword) {
+    els.resetPassword.addEventListener("click", async () => {
+      const email = (els.emailInput?.value || "").trim();
+      if (!email) {
+        showAccessNote("Enter your email address first, then select Forgot Password.", "error");
+        return;
+      }
+      try {
+        const [auth, authMod] = await Promise.all([
+          getFirebaseAuth(),
+          import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
+        ]);
+        await authMod.sendPasswordResetEmail(auth, email);
+        showAccessNote("A password reset email has been sent if this address has an account.", "success");
+      } catch (error) {
+        console.error("Password reset failed", error);
+        showAccessNote("Unable to send a password reset email. Please try again.", "error");
+      }
+    });
+  }
+
+  if (els.logout) {
+    els.logout.addEventListener("click", async () => {
+      try {
+        const [auth, authMod] = await Promise.all([
+          getFirebaseAuth(),
+          import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
+        ]);
+        await authMod.signOut(auth);
+      } finally {
+        window.location.reload();
+      }
+    });
+  }
 })();

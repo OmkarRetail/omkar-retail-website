@@ -445,6 +445,20 @@
     return;
   }
 
+  // Reuse the secure Firebase session created from the main Login page.
+  // Only allow the explicitly configured admin accounts into this dashboard.
+  getFirebaseAuth().then(async (auth) => {
+    const authMod = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    authMod.onAuthStateChanged(auth, (user) => {
+      if (!isAuthorizedAdmin(user)) return;
+      currentAdminRole = getAdminRole(user);
+      showAccessNote("");
+      unlockDashboard();
+    });
+  }).catch((error) => {
+    console.error("Admin session check failed", error);
+  });
+
   els.accessForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const email = (els.emailInput?.value || "").trim();

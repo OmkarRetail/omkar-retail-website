@@ -246,8 +246,11 @@
     }
     try {
       const services = await getServices();
-      await services.authMod.sendPasswordResetEmail(services.auth, email);
-      showNote(els.authNote, "If this email has an account, a password reset link has been sent.", "success");
+      await services.authMod.sendPasswordResetEmail(services.auth, email, {
+        url: "https://omkarretailventures.in/onboarding.html",
+        handleCodeInApp: false
+      });
+      showNote(els.authNote, "Password reset link sent. Please check your inbox and spam folder.", "success");
     } catch (error) {
       showNote(els.authNote, "Unable to send the password reset email. Please try again.", "error");
     }

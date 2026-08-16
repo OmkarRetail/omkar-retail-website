@@ -1316,8 +1316,8 @@ th {
 
 /* Do not reserve empty space above the homepage content. */
 .home-page .hero {
-  min-height: 0;
-  display: block;
+  min-height: 0 !important;
+  display: block !important;
 }
 
 /* Employee onboarding portal */

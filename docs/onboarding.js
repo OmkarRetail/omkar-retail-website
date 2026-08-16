@@ -8,6 +8,7 @@
   let profile = null;
   let signupInProgress = false;
   let signupRequiresLogin = false;
+  let inactiveAccountBlocked = false;
 
   const els = {
     authPanel: document.getElementById("auth-panel"),
@@ -108,6 +109,8 @@
       els.approvalStatus.textContent = employeeId
         ? `Your onboarding is complete. Your employee ID is ${employeeId}. Your saved details are shown below.`
         : "Your onboarding is complete. Your saved details are shown below.";
+    } else if (status === "inactive") {
+      els.approvalStatus.textContent = "Your employee profile is inactive. Your saved details are shown below. Please contact HR for assistance.";
     } else {
       els.approvalStatus.textContent = "Your details are pending HR review. You can update them until approval is completed.";
     }
@@ -115,7 +118,8 @@
 
   function setOnboardingEditable() {
     if (!els.onboardingForm) return;
-    const isComplete = String(profile?.status || "").toLowerCase() === "active";
+    const status = String(profile?.status || "").toLowerCase();
+    const isComplete = status === "active" || status === "inactive";
     Array.from(els.onboardingForm.elements).forEach((field) => {
       field.disabled = isComplete;
     });
@@ -150,6 +154,11 @@
 
   async function loadProfile() {
     const services = await getServices();
+    const disabledRef = services.fs.doc(services.db, "disabledAccounts", signedInUser.uid);
+    const disabledSnapshot = await services.fs.getDoc(disabledRef);
+    if (disabledSnapshot.exists()) {
+      throw { code: "account-inactive" };
+    }
     const ref = services.fs.doc(services.db, "employeeProfiles", signedInUser.uid);
     const snapshot = await services.fs.getDoc(ref);
     profile = snapshot.exists() ? snapshot.data() : null;
@@ -166,6 +175,23 @@
       showNote(els.onboardingNote, "");
     } catch (error) {
       console.error("Employee profile load failed", error);
+      if (error?.code === "permission-denied" || error?.code === "account-inactive") {
+        if (inactiveAccountBlocked) return;
+        inactiveAccountBlocked = true;
+        try {
+          const services = await getServices();
+          await services.authMod.signOut(services.auth);
+        } finally {
+          signedInUser = null;
+          profile = null;
+          els.onboardingPanel.hidden = true;
+          els.authPanel.hidden = false;
+          switchAuth("signin");
+          showNote(els.authNote, "This employee account is inactive. Please contact HR for assistance.", "error");
+          inactiveAccountBlocked = false;
+        }
+        return;
+      }
       showNote(els.onboardingNote, "Your account was created successfully. The employee profile service is being set up; please try again shortly or contact HR if the message continues.", "error");
     }
   }

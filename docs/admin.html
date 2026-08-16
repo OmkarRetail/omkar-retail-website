@@ -112,6 +112,17 @@
               <button id="refresh-onboarding" class="btn btn-outline" type="button">Refresh</button>
             </div>
             <p id="onboarding-admin-note" class="note" aria-live="polite"></p>
+            <div class="form-switch" role="tablist" aria-label="Onboarding status filter" style="margin:14px 0 0;">
+              <button class="form-switch-button active" type="button" data-onboarding-filter="pending" role="tab" aria-selected="true">Pending</button>
+              <button class="form-switch-button" type="button" data-onboarding-filter="active" role="tab" aria-selected="false">Active</button>
+              <button class="form-switch-button" type="button" data-onboarding-filter="inactive" role="tab" aria-selected="false">Inactive</button>
+            </div>
+            <details style="margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.62);">
+              <summary style="cursor:pointer; font-weight:800; color:var(--primary);">Create onboarding report</summary>
+              <p style="margin:10px 0; color:var(--muted);">Select the details you need, then download an Excel-compatible CSV report.</p>
+              <div id="onboarding-report-fields" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;"></div>
+              <button id="download-onboarding-report" class="btn btn-primary" type="button" style="margin-top:14px;">Download selected report</button>
+            </details>
             <div class="table-wrap" style="margin-top:12px;">
               <table>
                 <thead>
@@ -122,6 +133,7 @@
                     <th>Status</th>
                     <th>Employee ID</th>
                     <th>Submitted</th>
+                    <th>Retention until</th>
                     <th>Action</th>
                   </tr>
                 </thead>

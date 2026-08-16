@@ -13,6 +13,7 @@
   let dashboardRendered = false;
   let onboardingProfiles = [];
   let currentAdminRole = "";
+  let currentOnboardingFilter = "pending";
 
   const els = {
     accessForm: document.getElementById("admin-access-form"),
@@ -31,6 +32,8 @@
     onboardingBody: document.getElementById("onboarding-body"),
     onboardingNote: document.getElementById("onboarding-admin-note"),
     refreshOnboarding: document.getElementById("refresh-onboarding"),
+    onboardingReportFields: document.getElementById("onboarding-report-fields"),
+    downloadOnboardingReport: document.getElementById("download-onboarding-report"),
     applicationsBody: document.getElementById("applications-body"),
     employerBody: document.getElementById("employers-body"),
     contactsBody: document.getElementById("contacts-body"),
@@ -177,6 +180,64 @@
       lines.push(values.join(","));
     });
     return lines.join("\n");
+  }
+
+  const onboardingReportColumns = [
+    { key: "employeeId", label: "Employee ID", value: (row) => row.employeeId || row.submittedEmployeeId },
+    { key: "fullName", label: "Full Name", value: (row) => row.fullName },
+    { key: "status", label: "Status", value: (row) => row.status || "pending" },
+    { key: "mobile", label: "Mobile Number", value: (row) => row.mobile },
+    { key: "personalEmail", label: "Personal Email", value: (row) => row.personalEmail },
+    { key: "loginEmail", label: "Login Email", value: (row) => row.email },
+    { key: "dateOfJoining", label: "Date of Joining", value: (row) => row.dateOfJoining },
+    { key: "dateOfBirth", label: "Date of Birth", value: (row) => row.dateOfBirth },
+    { key: "maritalStatus", label: "Marital Status", value: (row) => row.maritalStatus },
+    { key: "pan", label: "PAN", value: (row) => row.pan },
+    { key: "uan", label: "UAN", value: (row) => row.uan },
+    { key: "nomineeName", label: "PF Nominee Name", value: (row) => row.nomineeName },
+    { key: "nomineeRelationship", label: "Nominee Relationship", value: (row) => row.nomineeRelationship },
+    { key: "bankName", label: "Bank Name", value: (row) => row.bankName },
+    { key: "bankAccountNumber", label: "Bank Account Number", value: (row) => row.bankAccountNumber },
+    { key: "ifsc", label: "IFSC Code", value: (row) => row.ifsc },
+    { key: "currentAddress", label: "Current Address", value: (row) => row.currentAddress },
+    { key: "emergencyContactName", label: "Emergency Contact Name", value: (row) => row.emergencyContactName },
+    { key: "emergencyContactMobile", label: "Emergency Contact Number", value: (row) => row.emergencyContactMobile },
+    { key: "submittedAt", label: "Submitted On", value: (row) => formatDate(row.submittedAt) },
+    { key: "approvedAt", label: "Approved On", value: (row) => formatDate(row.approvedAt) },
+    { key: "inactiveUntil", label: "Inactive Retention Until", value: (row) => formatDate(row.inactiveUntil) }
+  ];
+
+  function renderOnboardingReportFields() {
+    if (!els.onboardingReportFields || els.onboardingReportFields.childElementCount) return;
+    const initiallySelected = new Set(["employeeId", "fullName", "mobile", "personalEmail", "dateOfJoining", "status"]);
+    onboardingReportColumns.forEach((column) => {
+      const label = document.createElement("label");
+      label.style.margin = "0";
+      label.style.fontWeight = "600";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = column.key;
+      input.checked = initiallySelected.has(column.key);
+      input.style.cssText = "width:auto; margin:0 7px 0 0; vertical-align:middle;";
+      label.append(input, document.createTextNode(column.label));
+      els.onboardingReportFields.appendChild(label);
+    });
+  }
+
+  function downloadOnboardingReport() {
+    const selectedKeys = Array.from(els.onboardingReportFields?.querySelectorAll('input[type="checkbox"]:checked') || []).map((input) => input.value);
+    const selectedColumns = onboardingReportColumns.filter((column) => selectedKeys.includes(column.key));
+    if (!selectedColumns.length) {
+      showOnboardingNote("Select at least one report field.", "error");
+      return;
+    }
+    if (!onboardingProfiles.length) {
+      showOnboardingNote("There are no onboarding profiles to include in a report yet.", "error");
+      return;
+    }
+    const csv = toCsv(onboardingProfiles, selectedColumns.map((column) => column.label), (row) => selectedColumns.map((column) => column.value(row)));
+    downloadCsv("onboarding-report.csv", csv);
+    showOnboardingNote("Your selected onboarding report has been downloaded.", "success");
   }
 
   function downloadCsv(filename, text) {
@@ -337,7 +398,8 @@
       onboardingProfiles = snapshot.docs.map((entry) => {
         const value = entry.data();
         const submittedAt = value.submittedAt?.toDate ? value.submittedAt.toDate().toISOString() : value.submittedAt;
-        return { id: entry.id, ...value, submittedAt };
+        const approvedAt = value.approvedAt?.toDate ? value.approvedAt.toDate().toISOString() : value.approvedAt;
+        return { id: entry.id, ...value, submittedAt, approvedAt };
       }).sort((a, b) => String(b.submittedAt || "").localeCompare(String(a.submittedAt || "")));
       renderOnboardingTable();
       showOnboardingNote(onboardingProfiles.length ? "" : "No onboarding profiles have been submitted yet.");
@@ -352,11 +414,12 @@
   function renderOnboardingTable() {
     if (!els.onboardingBody) return;
     els.onboardingBody.innerHTML = "";
-    if (!onboardingProfiles.length) {
-      els.onboardingBody.appendChild(createCellRow(["No onboarding profiles yet"]));
+    const visibleProfiles = onboardingProfiles.filter((row) => String(row.status || "pending").toLowerCase() === currentOnboardingFilter);
+    if (!visibleProfiles.length) {
+      els.onboardingBody.appendChild(createCellRow([`No ${currentOnboardingFilter} onboarding profiles yet`]));
       return;
     }
-    onboardingProfiles.forEach((row) => {
+    visibleProfiles.forEach((row) => {
       const tr = document.createElement("tr");
       [row.fullName, row.personalEmail || row.email, row.mobile, row.status || "pending"].forEach((value) => {
         const td = document.createElement("td");
@@ -379,14 +442,23 @@
       const dateCell = document.createElement("td");
       dateCell.textContent = formatDate(row.submittedAt);
       tr.appendChild(dateCell);
+      const retentionCell = document.createElement("td");
+      retentionCell.textContent = formatDate(row.inactiveUntil);
+      tr.appendChild(retentionCell);
       const actionCell = document.createElement("td");
       if (canManageOnboarding()) {
+        const status = String(row.status || "pending").toLowerCase();
         const action = document.createElement("button");
         action.type = "button";
-        action.className = "btn btn-primary";
-        action.textContent = String(row.status || "").toLowerCase() === "active" ? "Active" : "Activate";
-        action.disabled = String(row.status || "").toLowerCase() === "active";
-        action.dataset.activateProfile = row.id;
+        if (status === "active") {
+          action.className = "btn btn-outline";
+          action.textContent = "Make inactive";
+          action.dataset.deactivateProfile = row.id;
+        } else {
+          action.className = "btn btn-primary";
+          action.textContent = status === "inactive" ? "Reactivate" : "Activate";
+          action.dataset.activateProfile = row.id;
+        }
         actionCell.appendChild(action);
       } else {
         actionCell.textContent = "Read only";
@@ -394,6 +466,16 @@
       tr.appendChild(actionCell);
       els.onboardingBody.appendChild(tr);
     });
+  }
+
+  function switchOnboardingFilter(filter) {
+    currentOnboardingFilter = filter;
+    document.querySelectorAll("[data-onboarding-filter]").forEach((button) => {
+      const isSelected = button.dataset.onboardingFilter === filter;
+      button.classList.toggle("active", isSelected);
+      button.setAttribute("aria-selected", String(isSelected));
+    });
+    renderOnboardingTable();
   }
 
   async function activateProfile(profileId) {
@@ -414,17 +496,61 @@
         import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")
       ]);
       const db = firestoreMod.getFirestore(app);
-      await firestoreMod.updateDoc(firestoreMod.doc(db, "employeeProfiles", profileId), {
+      const batch = firestoreMod.writeBatch(db);
+      batch.update(firestoreMod.doc(db, "employeeProfiles", profileId), {
         status: "active",
         employeeId,
         approvedBy: firebaseAuth?.currentUser?.email || "",
-        approvedAt: firestoreMod.serverTimestamp()
+        approvedAt: firestoreMod.serverTimestamp(),
+        inactiveAt: firestoreMod.deleteField(),
+        inactiveBy: firestoreMod.deleteField(),
+        inactiveUntil: firestoreMod.deleteField(),
+        inactiveExpiresAt: firestoreMod.deleteField()
       });
+      batch.delete(firestoreMod.doc(db, "disabledAccounts", profileId));
+      await batch.commit();
       await loadOnboardingProfiles();
       showOnboardingNote("Employee account activated.", "success");
     } catch (error) {
       console.error("Employee activation failed", error);
       showOnboardingNote("Unable to activate this account. Check the Firebase rules and try again.", "error");
+    }
+  }
+
+  async function deactivateProfile(profileId) {
+    if (!canManageOnboarding()) {
+      showOnboardingNote("Your account has report-only access.", "error");
+      return;
+    }
+    showOnboardingNote("Making employee inactive...");
+    try {
+      const [app, firestoreMod] = await Promise.all([
+        getFirebaseApp(),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")
+      ]);
+      const db = firestoreMod.getFirestore(app);
+      const inactiveUntil = new Date();
+      inactiveUntil.setDate(inactiveUntil.getDate() + 90);
+      const batch = firestoreMod.writeBatch(db);
+      batch.update(firestoreMod.doc(db, "employeeProfiles", profileId), {
+        status: "inactive",
+        inactiveBy: firebaseAuth?.currentUser?.email || "",
+        inactiveAt: firestoreMod.serverTimestamp(),
+        inactiveUntil: inactiveUntil.toISOString(),
+        inactiveExpiresAt: firestoreMod.Timestamp.fromDate(inactiveUntil)
+      });
+      batch.set(firestoreMod.doc(db, "disabledAccounts", profileId), {
+        uid: profileId,
+        status: "inactive",
+        disabledAt: firestoreMod.serverTimestamp(),
+        inactiveExpiresAt: firestoreMod.Timestamp.fromDate(inactiveUntil)
+      });
+      await batch.commit();
+      await loadOnboardingProfiles();
+      showOnboardingNote("Employee has been moved to the Inactive list and will be deleted after 90 days.", "success");
+    } catch (error) {
+      console.error("Employee deactivation failed", error);
+      showOnboardingNote("Unable to make this employee inactive. Check the Firebase rules and try again.", "error");
     }
   }
 
@@ -523,10 +649,22 @@
     els.refreshOnboarding.addEventListener("click", loadOnboardingProfiles);
   }
 
+  renderOnboardingReportFields();
+
+  if (els.downloadOnboardingReport) {
+    els.downloadOnboardingReport.addEventListener("click", downloadOnboardingReport);
+  }
+
   if (els.onboardingBody) {
     els.onboardingBody.addEventListener("click", (event) => {
       const button = event.target.closest("[data-activate-profile]");
       if (button) activateProfile(button.dataset.activateProfile);
+      const deactivateButton = event.target.closest("[data-deactivate-profile]");
+      if (deactivateButton) deactivateProfile(deactivateButton.dataset.deactivateProfile);
     });
   }
+
+  document.querySelectorAll("[data-onboarding-filter]").forEach((button) => {
+    button.addEventListener("click", () => switchOnboardingFilter(button.dataset.onboardingFilter));
+  });
 })();

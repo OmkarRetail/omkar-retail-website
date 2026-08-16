@@ -19,15 +19,21 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isDisabledEmployee(userId) {
+      return exists(/databases/$(database)/documents/disabledAccounts/$(userId));
+    }
+
     match /employeeProfiles/{userId} {
-      allow read: if isReportAdmin() || ownsProfile(userId);
-      allow create: if ownsProfile(userId)
+      allow read: if isReportAdmin() || (ownsProfile(userId) && !isDisabledEmployee(userId) && resource.data.status != "inactive");
+      allow create: if ownsProfile(userId) && !isDisabledEmployee(userId)
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.status == "pending"
         && request.resource.data.employeeId == "";
       allow update: if isOwnerAdmin() || (
         ownsProfile(userId)
+        && !isDisabledEmployee(userId)
+        && resource.data.status != "inactive"
         && request.resource.data.ownerUid == resource.data.ownerUid
         && request.resource.data.email == resource.data.email
         && request.resource.data.status == resource.data.status
@@ -35,6 +41,14 @@ service cloud.firestore {
         && request.resource.data.approvedBy == resource.data.approvedBy
         && request.resource.data.approvedAt == resource.data.approvedAt
       );
+    }
+
+    // Contains no employee personal data. It blocks an inactive account only
+    // during its 90-day retention period, then TTL removes this marker too.
+    match /disabledAccounts/{userId} {
+      allow read: if isReportAdmin() || ownsProfile(userId);
+      allow create: if isOwnerAdmin() && request.resource.data.uid == userId;
+      allow update, delete: if isOwnerAdmin();
     }
 
     // Public forms can create submissions, but only admins can view them.

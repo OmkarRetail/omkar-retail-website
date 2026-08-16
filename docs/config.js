@@ -23,6 +23,7 @@ window.OMKAR_SITE_CONFIG = {
     appId: "1:501708015074:web:aec8930e4833135166a5bb",
     measurementId: "G-WQVCR1ZQ4N"
   },
+  firebaseDataEnabled: false,
   googleAppsScriptWebAppUrl: "https://script.google.com/macros/s/AKfycbw741gSoH0FWwR6vph-KNzVPucjVsPih1AhSANdz8d371y4zVISzwkw1YjyUTOfbdjr3Q/exec",
   googleSheetId: "135AltlhB-NsS5QmuaaRCHYko_RvW-UJGhrxi5fVM-2w",
   googleDriveResumeFolderId: "1iXpaTpB87tNlQC1eBOQm_n39nvCK-6TZ",

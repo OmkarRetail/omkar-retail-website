@@ -65,6 +65,23 @@
     els.accessNote.className = `note ${type || ""}`.trim();
   }
 
+  function getLoginErrorMessage(error) {
+    switch (error?.code) {
+      case "auth/operation-not-allowed":
+        return "Email/password sign-in is not enabled in Firebase yet.";
+      case "auth/unauthorized-domain":
+        return "This website domain has not been authorised in Firebase yet.";
+      case "auth/network-request-failed":
+        return "Network connection failed. Please check your internet connection and try again.";
+      case "auth/invalid-credential":
+      case "auth/user-not-found":
+      case "auth/wrong-password":
+        return "This email address or password is not recognised. Please check it or use Forgot Password.";
+      default:
+        return "Unable to sign in. Please check your Firebase settings and try again.";
+    }
+  }
+
   function readLocal(key) {
     try {
       return JSON.parse(localStorage.getItem(key) || "[]");
@@ -312,7 +329,7 @@
       unlockDashboard();
     } catch (error) {
       console.error("Admin sign-in failed", error);
-      showAccessNote("Incorrect email address or password. Try again.", "error");
+      showAccessNote(getLoginErrorMessage(error), "error");
     }
   });
 

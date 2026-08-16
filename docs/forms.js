@@ -54,6 +54,12 @@
       return firebaseClients;
     }
 
+    // Authentication is used for the sign-in page. Public form data is kept
+    // out of Firebase until dedicated Firestore and Storage rules are enabled.
+    if (config.firebaseDataEnabled !== true) {
+      return null;
+    }
+
     const fb = config.firebase || {};
     const required = ["apiKey", "authDomain", "projectId", "storageBucket", "appId"];
     const hasFirebase = required.every((key) => Boolean(fb[key]));

@@ -662,6 +662,11 @@ img {
   gap: 12px;
 }
 
+/* Keep inactive sign-up/sign-in forms hidden even though .form-grid uses grid layout. */
+.form-grid[hidden] {
+  display: none !important;
+}
+
 label {
   display: block;
   font-weight: 700;

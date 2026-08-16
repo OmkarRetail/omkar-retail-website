@@ -401,14 +401,39 @@
         const approvedAt = value.approvedAt?.toDate ? value.approvedAt.toDate().toISOString() : value.approvedAt;
         return { id: entry.id, ...value, submittedAt, approvedAt };
       }).sort((a, b) => String(b.submittedAt || "").localeCompare(String(a.submittedAt || "")));
+      const deletedCount = await deleteExpiredInactiveProfiles(db, firestoreMod);
       renderOnboardingTable();
-      showOnboardingNote(onboardingProfiles.length ? "" : "No onboarding profiles have been submitted yet.");
+      if (deletedCount) {
+        showOnboardingNote(`${deletedCount} inactive employee record${deletedCount === 1 ? "" : "s"} expired after 90 days and ${deletedCount === 1 ? "was" : "were"} deleted.`, "success");
+      } else {
+        showOnboardingNote(onboardingProfiles.length ? "" : "No onboarding profiles have been submitted yet.");
+      }
     } catch (error) {
       console.error("Onboarding profile load failed", error);
       els.onboardingBody.innerHTML = "";
       els.onboardingBody.appendChild(createCellRow(["Onboarding data is not available yet."]));
       showOnboardingNote("Enable Cloud Firestore and publish the updated security rules to use onboarding approvals.", "error");
     }
+  }
+
+  async function deleteExpiredInactiveProfiles(db, firestoreMod) {
+    if (!canManageOnboarding()) return 0;
+    const now = Date.now();
+    const expiredProfiles = onboardingProfiles.filter((profile) => {
+      if (String(profile.status || "").toLowerCase() !== "inactive") return false;
+      const expiryTime = new Date(profile.inactiveUntil || "").getTime();
+      return Number.isFinite(expiryTime) && expiryTime <= now;
+    });
+    if (!expiredProfiles.length) return 0;
+
+    const batch = firestoreMod.writeBatch(db);
+    expiredProfiles.forEach((profile) => {
+      batch.delete(firestoreMod.doc(db, "employeeProfiles", profile.id));
+      batch.delete(firestoreMod.doc(db, "disabledAccounts", profile.id));
+    });
+    await batch.commit();
+    onboardingProfiles = onboardingProfiles.filter((profile) => !expiredProfiles.some((expired) => expired.id === profile.id));
+    return expiredProfiles.length;
   }
 
   function renderOnboardingTable() {
@@ -421,7 +446,7 @@
     }
     visibleProfiles.forEach((row) => {
       const tr = document.createElement("tr");
-      [row.fullName, row.personalEmail || row.email, row.mobile, row.status || "pending"].forEach((value) => {
+      [row.fullName, row.personalEmail || row.email, row.mobile, row.dateOfJoining || "-"].forEach((value) => {
         const td = document.createElement("td");
         td.textContent = value || "-";
         tr.appendChild(td);

@@ -105,6 +105,33 @@
 
           <div class="card reveal" style="margin-top:16px;">
             <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="margin:0 0 6px;">New Joiner Onboarding</h3>
+                <p style="margin:0; color:var(--muted);">Review submitted employee profiles, assign an employee ID, and activate the account.</p>
+              </div>
+              <button id="refresh-onboarding" class="btn btn-outline" type="button">Refresh</button>
+            </div>
+            <p id="onboarding-admin-note" class="note" aria-live="polite"></p>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Mobile</th>
+                    <th>Status</th>
+                    <th>Employee ID</th>
+                    <th>Submitted</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="onboarding-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
               <h3 style="margin:0;">Candidate Applications</h3>
               <button id="export-applications" class="btn btn-outline" type="button">Export CSV</button>
             </div>

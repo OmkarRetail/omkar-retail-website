@@ -1,24 +1,65 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerAdmin() {
+      return signedIn()
+        && request.auth.token.email == "omkarretailventure@gmail.com";
+    }
+
+    function isReportAdmin() {
+      return isOwnerAdmin() || (signedIn()
+        && request.auth.token.email == "koushikventureofficial@gmail.com");
+    }
+
+    function ownsProfile(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /employeeProfiles/{userId} {
+      allow read: if isReportAdmin() || ownsProfile(userId);
+      allow create: if ownsProfile(userId)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == "pending"
+        && request.resource.data.employeeId == "";
+      allow update: if isOwnerAdmin() || (
+        ownsProfile(userId)
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.employeeId == resource.data.employeeId
+        && request.resource.data.approvedBy == resource.data.approvedBy
+        && request.resource.data.approvedAt == resource.data.approvedAt
+      );
+    }
+
+    // Public forms can create submissions, but only admins can view them.
     match /applications/{docId} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
     }
 
     match /employerLeads/{docId} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
     }
 
     match /contacts/{docId} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
     }
 
     match /supports/{docId} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
     }
   }
 }

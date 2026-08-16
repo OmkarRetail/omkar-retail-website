@@ -1,9 +1,28 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Only the owner admin can download identity and bank-supporting documents.
+    function isOwnerAdmin() {
+      return signedIn()
+        && request.auth.token.email == "omkarretailventure@gmail.com";
+    }
+
+    match /onboarding/{userId}/{fileName} {
+      allow read: if signedIn() && (request.auth.uid == userId || isOwnerAdmin());
+      allow write: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/jpeg|image/png');
+    }
+
     match /resumes/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.resource.size < 5 * 1024 * 1024
+      allow read: if isOwnerAdmin();
+      allow write: if signedIn()
+        && request.resource.size < 5 * 1024 * 1024
         && request.resource.contentType.matches('application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     }
   }

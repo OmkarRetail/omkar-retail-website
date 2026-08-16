@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Employee Onboarding | OMKAR RETAIL VENTURES</title>
+    <meta name="description" content="Secure employee onboarding for Omkar Retail Ventures." />
+    <meta name="robots" content="noindex,nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container nav-wrap">
+        <a class="brand" href="index.html"><span>OMKAR RETAIL VENTURES</span></a>
+        <nav class="site-nav onboarding-nav" aria-label="Main navigation">
+          <a href="index.html">Home</a>
+          <a href="apply.html">Careers</a>
+          <a href="contact.html">Contact</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero onboarding-hero">
+        <div class="container">
+          <span class="badge reveal">Employee onboarding</span>
+          <h1 class="reveal">Create your account and complete your joining details.</h1>
+          <p class="reveal">Your details and documents are visible only to you and authorised Omkar Retail Ventures administrators.</p>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top:8px;">
+        <div class="container">
+          <div id="auth-panel" class="form-shell reveal onboarding-shell">
+            <div class="form-switch" role="tablist" aria-label="Account options">
+              <button id="show-signup" class="form-switch-button active" type="button" role="tab" aria-selected="true">Create account</button>
+              <button id="show-signin" class="form-switch-button" type="button" role="tab" aria-selected="false">Sign in</button>
+            </div>
+
+            <form id="signup-form" class="form-grid two" novalidate>
+              <div class="form-intro full-span">
+                <h2 class="section-title">New joiner sign-up</h2>
+                <p class="section-lead">Use a personal email address you can access. Your account will remain pending until HR reviews your details.</p>
+              </div>
+              <div>
+                <label for="signup-email">Personal email address</label>
+                <input id="signup-email" type="email" autocomplete="email" required />
+              </div>
+              <div>
+                <label for="signup-password">Create password</label>
+                <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required />
+              </div>
+              <div>
+                <label for="signup-password-confirm">Confirm password</label>
+                <input id="signup-password-confirm" type="password" autocomplete="new-password" minlength="8" required />
+              </div>
+              <div class="form-action">
+                <button class="btn btn-primary" type="submit">Create account</button>
+              </div>
+            </form>
+
+            <form id="signin-form" class="form-grid two" hidden>
+              <div class="form-intro full-span">
+                <h2 class="section-title">Employee sign-in</h2>
+                <p class="section-lead">Sign in to complete or update your onboarding details.</p>
+              </div>
+              <div>
+                <label for="signin-email">Email address</label>
+                <input id="signin-email" type="email" autocomplete="username" required />
+              </div>
+              <div>
+                <label for="signin-password">Password</label>
+                <input id="signin-password" type="password" autocomplete="current-password" required />
+              </div>
+              <div class="form-action">
+                <button class="btn btn-primary" type="submit">Sign in</button>
+                <button id="reset-password" class="btn btn-outline" type="button">Forgot password?</button>
+              </div>
+            </form>
+            <p id="auth-note" class="note" aria-live="polite"></p>
+          </div>
+
+          <section id="onboarding-panel" class="form-shell reveal onboarding-shell" hidden>
+            <div class="onboarding-panel-head">
+              <div>
+                <span class="badge">Employee profile</span>
+                <h2 class="section-title">Complete your onboarding details</h2>
+                <p class="section-lead">Please enter accurate information. You can return later to update your profile while it is pending review.</p>
+              </div>
+              <button id="employee-logout" class="btn btn-outline" type="button">Logout</button>
+            </div>
+
+            <div id="approval-status" class="approval-status" aria-live="polite"></div>
+
+            <form id="onboarding-form" class="form-grid two">
+              <div>
+                <label for="employee-name">Full name</label>
+                <input id="employee-name" name="fullName" autocomplete="name" required />
+              </div>
+              <div>
+                <label for="employee-mobile">Mobile number</label>
+                <input id="employee-mobile" name="mobile" inputmode="numeric" autocomplete="tel" pattern="[0-9]{10}" placeholder="10-digit number" required />
+              </div>
+              <div>
+                <label for="employee-email">Personal email address</label>
+                <input id="employee-email" name="email" type="email" readonly />
+              </div>
+              <div>
+                <label for="employee-dob">Date of birth</label>
+                <input id="employee-dob" name="dateOfBirth" type="date" required />
+              </div>
+              <div>
+                <label for="employee-marital-status">Marital status</label>
+                <select id="employee-marital-status" name="maritalStatus" required>
+                  <option value="">Select</option>
+                  <option>Single</option>
+                  <option>Married</option>
+                </select>
+              </div>
+              <div>
+                <label for="employee-emergency-name">Emergency contact name</label>
+                <input id="employee-emergency-name" name="emergencyContactName" required />
+              </div>
+              <div>
+                <label for="employee-emergency-mobile">Emergency contact number</label>
+                <input id="employee-emergency-mobile" name="emergencyContactMobile" inputmode="numeric" pattern="[0-9]{10}" placeholder="10-digit number" required />
+              </div>
+              <div>
+                <label for="employee-pan">PAN</label>
+                <input id="employee-pan" name="pan" maxlength="10" style="text-transform:uppercase" required />
+              </div>
+              <div>
+                <label for="employee-uan">UAN</label>
+                <input id="employee-uan" name="uan" placeholder="Enter NA if not available" required />
+              </div>
+              <div>
+                <label for="employee-nominee-name">PF nominee name</label>
+                <input id="employee-nominee-name" name="nomineeName" required />
+              </div>
+              <div>
+                <label for="employee-nominee-relation">Nominee relationship</label>
+                <input id="employee-nominee-relation" name="nomineeRelationship" required />
+              </div>
+              <div>
+                <label for="employee-bank-name">Bank name</label>
+                <input id="employee-bank-name" name="bankName" required />
+              </div>
+              <div>
+                <label for="employee-account-number">Bank account number</label>
+                <input id="employee-account-number" name="bankAccountNumber" inputmode="numeric" required />
+              </div>
+              <div>
+                <label for="employee-ifsc">IFSC code</label>
+                <input id="employee-ifsc" name="ifsc" style="text-transform:uppercase" required />
+              </div>
+              <div class="full-span">
+                <label for="employee-address">Current address</label>
+                <textarea id="employee-address" name="currentAddress" rows="3" required></textarea>
+              </div>
+
+              <div class="upload-grid full-span">
+                <div class="upload-item">
+                  <label for="employee-aadhaar-file">Aadhaar document</label>
+                  <small>PDF, JPG, or PNG. Maximum 5 MB.</small>
+                  <input id="employee-aadhaar-file" name="aadhaarFile" type="file" accept="application/pdf,image/jpeg,image/png" />
+                </div>
+                <div class="upload-item">
+                  <label for="employee-pan-file">PAN document</label>
+                  <small>PDF, JPG, or PNG. Maximum 5 MB.</small>
+                  <input id="employee-pan-file" name="panFile" type="file" accept="application/pdf,image/jpeg,image/png" />
+                </div>
+                <div class="upload-item">
+                  <label for="employee-photo-file">Recent photo</label>
+                  <small>JPG or PNG. Maximum 5 MB.</small>
+                  <input id="employee-photo-file" name="photoFile" type="file" accept="image/jpeg,image/png" />
+                </div>
+              </div>
+
+              <div class="full-span form-action">
+                <button class="btn btn-primary" type="submit">Save onboarding details</button>
+              </div>
+            </form>
+            <p id="onboarding-note" class="note" aria-live="polite"></p>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer"><div class="container copyright">&copy; <span class="current-year"></span> <span data-company-name>OMKAR RETAIL VENTURES</span></div></footer>
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+    <script src="onboarding.js"></script>
+  </body>
+</html>

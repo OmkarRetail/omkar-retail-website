@@ -24,6 +24,11 @@ window.OMKAR_SITE_CONFIG = {
     measurementId: "G-WQVCR1ZQ4N"
   },
   firebaseDataEnabled: false,
+  // Owner can approve employees and edit records. Report users can only view/export reports.
+  adminRoles: {
+    "omkarretailventure@gmail.com": "owner",
+    "koushikventureofficial@gmail.com": "report"
+  },
   googleAppsScriptWebAppUrl: "https://script.google.com/macros/s/AKfycbw741gSoH0FWwR6vph-KNzVPucjVsPih1AhSANdz8d371y4zVISzwkw1YjyUTOfbdjr3Q/exec",
   googleSheetId: "135AltlhB-NsS5QmuaaRCHYko_RvW-UJGhrxi5fVM-2w",
   googleDriveResumeFolderId: "1iXpaTpB87tNlQC1eBOQm_n39nvCK-6TZ",

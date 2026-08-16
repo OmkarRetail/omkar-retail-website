@@ -11,6 +11,8 @@
   let firebaseApp = null;
   let firebaseAuth = null;
   let dashboardRendered = false;
+  let onboardingProfiles = [];
+  let currentAdminRole = "";
 
   const els = {
     accessForm: document.getElementById("admin-access-form"),
@@ -26,6 +28,9 @@
     totalSupports: document.getElementById("kpi-supports"),
     applicationsSheetLink: document.getElementById("open-applications-sheet"),
     resumeFolderLink: document.getElementById("open-resume-folder"),
+    onboardingBody: document.getElementById("onboarding-body"),
+    onboardingNote: document.getElementById("onboarding-admin-note"),
+    refreshOnboarding: document.getElementById("refresh-onboarding"),
     applicationsBody: document.getElementById("applications-body"),
     employerBody: document.getElementById("employers-body"),
     contactsBody: document.getElementById("contacts-body"),
@@ -65,6 +70,25 @@
     els.accessNote.className = `note ${type || ""}`.trim();
   }
 
+  function isAuthorizedAdmin(user) {
+    const email = String(user?.email || "").trim().toLowerCase();
+    return Boolean(email) && Boolean(config.adminRoles?.[email]);
+  }
+
+  function getAdminRole(user) {
+    return String(config.adminRoles?.[String(user?.email || "").trim().toLowerCase()] || "");
+  }
+
+  function canManageOnboarding() {
+    return currentAdminRole === "owner";
+  }
+
+  function showOnboardingNote(message, type) {
+    if (!els.onboardingNote) return;
+    els.onboardingNote.textContent = message || "";
+    els.onboardingNote.className = `note ${type || ""}`.trim();
+  }
+
   function getLoginErrorMessage(error) {
     switch (error?.code) {
       case "auth/operation-not-allowed":
@@ -77,6 +101,8 @@
       case "auth/user-not-found":
       case "auth/wrong-password":
         return "This email address or password is not recognised. Please check it or use Forgot Password.";
+      case "auth/not-authorised-admin":
+        return "This account is not authorised to access the dashboard.";
       default:
         return "Unable to sign in. Please check your Firebase settings and try again.";
     }
@@ -294,6 +320,112 @@
         ? "Live Firebase data mode"
         : "Local browser data mode";
     }
+
+    loadOnboardingProfiles();
+  }
+
+  async function loadOnboardingProfiles() {
+    if (!els.onboardingBody) return;
+    showOnboardingNote("Loading onboarding profiles...");
+    try {
+      const [app, firestoreMod] = await Promise.all([
+        getFirebaseApp(),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")
+      ]);
+      const db = firestoreMod.getFirestore(app);
+      const snapshot = await firestoreMod.getDocs(firestoreMod.collection(db, "employeeProfiles"));
+      onboardingProfiles = snapshot.docs.map((entry) => {
+        const value = entry.data();
+        const submittedAt = value.submittedAt?.toDate ? value.submittedAt.toDate().toISOString() : value.submittedAt;
+        return { id: entry.id, ...value, submittedAt };
+      }).sort((a, b) => String(b.submittedAt || "").localeCompare(String(a.submittedAt || "")));
+      renderOnboardingTable();
+      showOnboardingNote(onboardingProfiles.length ? "" : "No onboarding profiles have been submitted yet.");
+    } catch (error) {
+      console.error("Onboarding profile load failed", error);
+      els.onboardingBody.innerHTML = "";
+      els.onboardingBody.appendChild(createCellRow(["Onboarding data is not available yet."]));
+      showOnboardingNote("Enable Cloud Firestore and publish the updated security rules to use onboarding approvals.", "error");
+    }
+  }
+
+  function renderOnboardingTable() {
+    if (!els.onboardingBody) return;
+    els.onboardingBody.innerHTML = "";
+    if (!onboardingProfiles.length) {
+      els.onboardingBody.appendChild(createCellRow(["No onboarding profiles yet"]));
+      return;
+    }
+    onboardingProfiles.forEach((row) => {
+      const tr = document.createElement("tr");
+      [row.fullName, row.email, row.mobile, row.status || "pending"].forEach((value) => {
+        const td = document.createElement("td");
+        td.textContent = value || "-";
+        tr.appendChild(td);
+      });
+      const employeeIdCell = document.createElement("td");
+      if (canManageOnboarding()) {
+        const employeeIdInput = document.createElement("input");
+        employeeIdInput.type = "text";
+        employeeIdInput.value = row.employeeId || "";
+        employeeIdInput.placeholder = "Employee ID";
+        employeeIdInput.dataset.employeeIdFor = row.id;
+        employeeIdInput.disabled = String(row.status || "").toLowerCase() === "active";
+        employeeIdCell.appendChild(employeeIdInput);
+      } else {
+        employeeIdCell.textContent = row.employeeId || "-";
+      }
+      tr.appendChild(employeeIdCell);
+      const dateCell = document.createElement("td");
+      dateCell.textContent = formatDate(row.submittedAt);
+      tr.appendChild(dateCell);
+      const actionCell = document.createElement("td");
+      if (canManageOnboarding()) {
+        const action = document.createElement("button");
+        action.type = "button";
+        action.className = "btn btn-primary";
+        action.textContent = String(row.status || "").toLowerCase() === "active" ? "Active" : "Activate";
+        action.disabled = String(row.status || "").toLowerCase() === "active";
+        action.dataset.activateProfile = row.id;
+        actionCell.appendChild(action);
+      } else {
+        actionCell.textContent = "Read only";
+      }
+      tr.appendChild(actionCell);
+      els.onboardingBody.appendChild(tr);
+    });
+  }
+
+  async function activateProfile(profileId) {
+    if (!canManageOnboarding()) {
+      showOnboardingNote("Your account has report-only access.", "error");
+      return;
+    }
+    const idField = document.querySelector(`[data-employee-id-for="${profileId}"]`);
+    const employeeId = String(idField?.value || "").trim();
+    if (!employeeId) {
+      showOnboardingNote("Enter an Employee ID before activating the account.", "error");
+      return;
+    }
+    showOnboardingNote("Activating employee account...");
+    try {
+      const [app, firestoreMod] = await Promise.all([
+        getFirebaseApp(),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")
+      ]);
+      const db = firestoreMod.getFirestore(app);
+      await firestoreMod.updateDoc(firestoreMod.doc(db, "employeeProfiles", profileId), {
+        status: "active",
+        employeeId,
+        approvedBy: firebaseAuth?.currentUser?.email || "",
+        approvedAt: firestoreMod.serverTimestamp()
+      });
+      await loadOnboardingProfiles();
+      showOnboardingNote("Employee account activated.", "success");
+    } catch (error) {
+      console.error("Employee activation failed", error);
+      showOnboardingNote("Unable to activate this account. Check the Firebase rules and try again.", "error");
+    }
   }
 
   function unlockDashboard() {
@@ -325,6 +457,11 @@
         import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
       ]);
       await authMod.signInWithEmailAndPassword(auth, email, password);
+      if (!isAuthorizedAdmin(auth.currentUser)) {
+        await authMod.signOut(auth);
+        throw { code: "auth/not-authorised-admin" };
+      }
+      currentAdminRole = getAdminRole(auth.currentUser);
       showAccessNote("");
       unlockDashboard();
     } catch (error) {
@@ -365,6 +502,17 @@
       } finally {
         window.location.reload();
       }
+    });
+  }
+
+  if (els.refreshOnboarding) {
+    els.refreshOnboarding.addEventListener("click", loadOnboardingProfiles);
+  }
+
+  if (els.onboardingBody) {
+    els.onboardingBody.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-activate-profile]");
+      if (button) activateProfile(button.dataset.activateProfile);
     });
   }
 })();

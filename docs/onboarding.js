@@ -40,11 +40,10 @@
   async function getServices() {
     if (firebaseServices) return firebaseServices;
     const fb = getFirebaseConfig();
-    const [appMod, authMod, firestoreMod, storageMod] = await Promise.all([
+    const [appMod, authMod, firestoreMod] = await Promise.all([
       import(`https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-app.js`),
       import(`https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-auth.js`),
-      import(`https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-firestore.js`),
-      import(`https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-storage.js`)
+      import(`https://www.gstatic.com/firebasejs/${firebaseVersion}/firebase-firestore.js`)
     ]);
     firebaseApp = appMod.getApps()[0] || appMod.initializeApp(fb);
     firebaseAuth = authMod.getAuth(firebaseApp);
@@ -52,9 +51,7 @@
       auth: firebaseAuth,
       authMod,
       db: firestoreMod.getFirestore(firebaseApp),
-      fs: firestoreMod,
-      storage: storageMod.getStorage(firebaseApp),
-      st: storageMod
+      fs: firestoreMod
     };
     return firebaseServices;
   }
@@ -81,30 +78,6 @@
   function setFormValue(name, value) {
     const field = els.onboardingForm.elements.namedItem(name);
     if (field) field.value = value || "";
-  }
-
-  function safeFileName(name) {
-    return String(name || "document").replace(/[^a-zA-Z0-9._-]/g, "-");
-  }
-
-  function validateFile(file, type) {
-    if (!file) return "";
-    if (file.size > 5 * 1024 * 1024) return "Each document must be 5 MB or smaller.";
-    const allowed = type === "photo"
-      ? ["image/jpeg", "image/png"]
-      : ["application/pdf", "image/jpeg", "image/png"];
-    if (!allowed.includes(file.type)) return "Use only the file types shown beside each upload field.";
-    return "";
-  }
-
-  async function uploadDocument(services, userId, key, file) {
-    if (!file) return profile?.documents?.[key] || null;
-    const validation = validateFile(file, key);
-    if (validation) throw new Error(validation);
-    const path = `onboarding/${userId}/${key}-${Date.now()}-${safeFileName(file.name)}`;
-    const fileRef = services.st.ref(services.storage, path);
-    await services.st.uploadBytes(fileRef, file, { contentType: file.type });
-    return { path, name: file.name, type: file.type, updatedAt: new Date().toISOString() };
   }
 
   function renderStatus() {
@@ -160,7 +133,7 @@
       showNote(els.onboardingNote, "");
     } catch (error) {
       console.error("Employee profile load failed", error);
-      showNote(els.onboardingNote, "Your account was created successfully. Secure onboarding storage is being set up; please try again shortly or contact HR if the message continues.", "error");
+      showNote(els.onboardingNote, "Your account was created successfully. The employee profile service is being set up; please try again shortly or contact HR if the message continues.", "error");
     }
   }
 
@@ -242,23 +215,9 @@
       showNote(els.onboardingNote, "Enter valid 10-digit mobile numbers.", "error");
       return;
     }
-    const files = {
-      aadhaar: els.onboardingForm.elements.namedItem("aadhaarFile").files[0],
-      pan: els.onboardingForm.elements.namedItem("panFile").files[0],
-      photo: els.onboardingForm.elements.namedItem("photoFile").files[0]
-    };
-    if (!profile?.documents?.aadhaar && !files.aadhaar || !profile?.documents?.pan && !files.pan || !profile?.documents?.photo && !files.photo) {
-      showNote(els.onboardingNote, "Please upload Aadhaar, PAN, and a recent photo.", "error");
-      return;
-    }
     showNote(els.onboardingNote, "Saving your details securely...");
     try {
       const services = await getServices();
-      const documents = {
-        aadhaar: await uploadDocument(services, signedInUser.uid, "aadhaar", files.aadhaar),
-        pan: await uploadDocument(services, signedInUser.uid, "pan", files.pan),
-        photo: await uploadDocument(services, signedInUser.uid, "photo", files.photo)
-      };
       const payload = {
         ownerUid: signedInUser.uid,
         email: signedInUser.email || "",
@@ -278,7 +237,6 @@
         bankAccountNumber: getFormValue("bankAccountNumber"),
         ifsc: getFormValue("ifsc").toUpperCase(),
         currentAddress: getFormValue("currentAddress"),
-        documents,
         lastUpdated: services.fs.serverTimestamp()
       };
       if (!profile) {
@@ -290,7 +248,7 @@
       }
       await services.fs.setDoc(services.fs.doc(services.db, "employeeProfiles", signedInUser.uid), payload, { merge: true });
       await loadProfile();
-      showNote(els.onboardingNote, "Your onboarding details have been saved and sent for HR review.", "success");
+      showNote(els.onboardingNote, "Your onboarding details have been saved and sent for HR review. HR will share the separate secure document-upload link.", "success");
     } catch (error) {
       console.error("Onboarding save failed", error);
       showNote(els.onboardingNote, "Unable to save your onboarding details. Please try again or contact HR.", "error");

@@ -1490,6 +1490,16 @@ th {
   font-size: clamp(2.55rem, 5.1vw, 4.65rem);
 }
 
+/* Keep the opening area compact on every public page. */
+.hero {
+  padding: 44px 0 48px;
+}
+
+.combined-page .hero {
+  min-height: 0;
+  display: block;
+}
+
 /* Motion layer - decorative only; no content or page behaviour is changed. */
 html {
   scroll-behavior: smooth;

@@ -358,7 +358,7 @@
     }
     onboardingProfiles.forEach((row) => {
       const tr = document.createElement("tr");
-      [row.fullName, row.email, row.mobile, row.status || "pending"].forEach((value) => {
+      [row.fullName, row.personalEmail || row.email, row.mobile, row.status || "pending"].forEach((value) => {
         const td = document.createElement("td");
         td.textContent = value || "-";
         tr.appendChild(td);
@@ -367,13 +367,13 @@
       if (canManageOnboarding()) {
         const employeeIdInput = document.createElement("input");
         employeeIdInput.type = "text";
-        employeeIdInput.value = row.employeeId || "";
+        employeeIdInput.value = row.employeeId || row.submittedEmployeeId || "";
         employeeIdInput.placeholder = "Employee ID";
         employeeIdInput.dataset.employeeIdFor = row.id;
         employeeIdInput.disabled = String(row.status || "").toLowerCase() === "active";
         employeeIdCell.appendChild(employeeIdInput);
       } else {
-        employeeIdCell.textContent = row.employeeId || "-";
+        employeeIdCell.textContent = row.employeeId || row.submittedEmployeeId || "-";
       }
       tr.appendChild(employeeIdCell);
       const dateCell = document.createElement("td");

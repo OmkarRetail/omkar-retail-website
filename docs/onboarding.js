@@ -125,7 +125,8 @@
     if (!signedInUser || !els.onboardingForm) return;
     setFormValue("fullName", profile?.fullName);
     setFormValue("mobile", profile?.mobile);
-    setFormValue("email", signedInUser.email || profile?.email);
+    setFormValue("submittedEmployeeId", profile?.submittedEmployeeId || profile?.employeeId);
+    setFormValue("personalEmail", profile?.personalEmail || signedInUser.email || profile?.email);
     setFormValue("dateOfBirth", profile?.dateOfBirth);
     setFormValue("maritalStatus", profile?.maritalStatus);
     setFormValue("emergencyContactName", profile?.emergencyContactName);
@@ -159,7 +160,7 @@
       showNote(els.onboardingNote, "");
     } catch (error) {
       console.error("Employee profile load failed", error);
-      showNote(els.onboardingNote, "Your account was created, but onboarding storage is not ready yet. Please contact HR.", "error");
+      showNote(els.onboardingNote, "Your account was created successfully. Secure onboarding storage is being set up; please try again shortly or contact HR if the message continues.", "error");
     }
   }
 
@@ -261,6 +262,8 @@
       const payload = {
         ownerUid: signedInUser.uid,
         email: signedInUser.email || "",
+        submittedEmployeeId: getFormValue("submittedEmployeeId"),
+        personalEmail: getFormValue("personalEmail"),
         fullName: getFormValue("fullName"),
         mobile,
         dateOfBirth: getFormValue("dateOfBirth"),

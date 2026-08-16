@@ -6,6 +6,8 @@
   let firebaseServices;
   let signedInUser = null;
   let profile = null;
+  let signupInProgress = false;
+  let signupRequiresLogin = false;
 
   const els = {
     authPanel: document.getElementById("auth-panel"),
@@ -19,7 +21,8 @@
     employeeLogout: document.getElementById("employee-logout"),
     onboardingForm: document.getElementById("onboarding-form"),
     onboardingNote: document.getElementById("onboarding-note"),
-    approvalStatus: document.getElementById("approval-status")
+    approvalStatus: document.getElementById("approval-status"),
+    onboardingSaveAction: document.getElementById("onboarding-save-action")
   };
 
   function showNote(element, message, type) {
@@ -35,6 +38,20 @@
       throw new Error("Firebase is not configured for this website yet.");
     }
     return fb;
+  }
+
+  function isAdminUser(user) {
+    const email = cleanValue(user?.email).toLowerCase();
+    return Boolean(config.adminRoles?.[email]);
+  }
+
+  function openCorrectPortal(user) {
+    if (signupRequiresLogin) return;
+    if (isAdminUser(user)) {
+      window.location.replace("admin.html");
+      return;
+    }
+    showEmployeePortal(user);
   }
 
   async function getServices() {
@@ -89,10 +106,22 @@
     els.approvalStatus.className = `approval-status ${status}`;
     if (status === "active") {
       els.approvalStatus.textContent = employeeId
-        ? `Your profile is active. Your employee ID is ${employeeId}.`
-        : "Your profile is active.";
+        ? `Your onboarding is complete. Your employee ID is ${employeeId}. Your saved details are shown below.`
+        : "Your onboarding is complete. Your saved details are shown below.";
     } else {
       els.approvalStatus.textContent = "Your details are pending HR review. You can update them until approval is completed.";
+    }
+  }
+
+  function setOnboardingEditable() {
+    if (!els.onboardingForm) return;
+    const isComplete = String(profile?.status || "").toLowerCase() === "active";
+    Array.from(els.onboardingForm.elements).forEach((field) => {
+      field.disabled = isComplete;
+    });
+    if (els.onboardingSaveAction) {
+      els.onboardingSaveAction.hidden = isComplete;
+      els.onboardingSaveAction.style.display = isComplete ? "none" : "";
     }
   }
 
@@ -116,6 +145,7 @@
     setFormValue("ifsc", profile?.ifsc);
     setFormValue("currentAddress", profile?.currentAddress);
     renderStatus();
+    setOnboardingEditable();
   }
 
   async function loadProfile() {
@@ -156,23 +186,37 @@
 
   els.signupForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (signupInProgress) return;
     const email = cleanValue(document.getElementById("signup-email").value);
-    const password = document.getElementById("signup-password").value;
-    const confirmPassword = document.getElementById("signup-password-confirm").value;
+    const password = document.getElementById("signup-password").value.trim();
+    const confirmPassword = document.getElementById("signup-password-confirm").value.trim();
     if (password !== confirmPassword) {
-      showNote(els.authNote, "The passwords do not match.", "error");
+      showNote(els.authNote, "The passwords do not match. Please enter the same password in both fields.", "error");
+      document.getElementById("signup-password-confirm").focus();
       return;
     }
+    signupInProgress = true;
+    signupRequiresLogin = true;
+    const submitButton = els.signupForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
     showNote(els.authNote, "Creating your account...");
     try {
       const services = await getServices();
       const credential = await services.authMod.createUserWithEmailAndPassword(services.auth, email, password);
       try { await services.authMod.sendEmailVerification(credential.user); } catch (_) { /* Email verification is optional. */ }
-      showNote(els.authNote, "");
-      await showEmployeePortal(credential.user);
+      await services.authMod.signOut(services.auth);
+      signupRequiresLogin = false;
+      switchAuth("signin");
+      document.getElementById("signin-email").value = email;
+      document.getElementById("signin-password").value = "";
+      showNote(els.authNote, "Account created successfully. Please sign in to complete your onboarding details.", "success");
     } catch (error) {
       console.error("Employee sign-up failed", error);
       showNote(els.authNote, getAuthError(error), "error");
+    } finally {
+      signupInProgress = false;
+      signupRequiresLogin = false;
+      if (submitButton) submitButton.disabled = false;
     }
   });
 
@@ -187,7 +231,7 @@
         document.getElementById("signin-password").value
       );
       showNote(els.authNote, "");
-      await showEmployeePortal(credential.user);
+      await openCorrectPortal(credential.user);
     } catch (error) {
       console.error("Employee sign-in failed", error);
       showNote(els.authNote, getAuthError(error), "error");
@@ -252,7 +296,7 @@
       }
       await services.fs.setDoc(services.fs.doc(services.db, "employeeProfiles", signedInUser.uid), payload, { merge: true });
       await loadProfile();
-      showNote(els.onboardingNote, "Your details are pending HR review.", "success");
+      showNote(els.onboardingNote, "Your onboarding details have been submitted successfully for HR review.", "success");
     } catch (error) {
       console.error("Onboarding save failed", error);
       showNote(els.onboardingNote, "Unable to save your onboarding details. Please try again or contact HR.", "error");
@@ -267,7 +311,7 @@
   getServices().then((services) => {
     services.authMod.onAuthStateChanged(services.auth, (user) => {
       if (user) {
-        showEmployeePortal(user);
+        openCorrectPortal(user);
       } else {
         signedInUser = null;
         profile = null;

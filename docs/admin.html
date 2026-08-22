@@ -113,15 +113,33 @@
             </div>
             <p id="onboarding-admin-note" class="note" aria-live="polite"></p>
             <div class="form-switch" role="tablist" aria-label="Onboarding status filter" style="margin:14px 0 0;">
-              <button class="form-switch-button active" type="button" data-onboarding-filter="pending" role="tab" aria-selected="true">Pending</button>
-              <button class="form-switch-button" type="button" data-onboarding-filter="active" role="tab" aria-selected="false">Active</button>
+              <button class="form-switch-button" type="button" data-onboarding-filter="pending" role="tab" aria-selected="false">Pending</button>
+              <button class="form-switch-button active" type="button" data-onboarding-filter="active" role="tab" aria-selected="true">Active</button>
               <button class="form-switch-button" type="button" data-onboarding-filter="inactive" role="tab" aria-selected="false">Inactive</button>
             </div>
-            <details style="margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.62);">
-              <summary style="cursor:pointer; font-weight:800; color:var(--primary);">Create onboarding report</summary>
-              <p style="margin:10px 0; color:var(--muted);">Select the details you need, then download an Excel-compatible CSV report.</p>
+            <details id="onboarding-report-panel" style="margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.62);">
+              <summary style="cursor:pointer; font-weight:800; color:var(--primary);">View or export employee report</summary>
+              <p style="margin:10px 0; color:var(--muted);">Choose the details and filters you need. Review the report on screen first, then export the same filtered report if required.</p>
+              <div class="form-grid two" style="margin-top:12px;">
+                <label>Search employee<input id="onboarding-report-search" type="search" placeholder="Name, Employee ID or mobile number" /></label>
+                <label>Status<select id="onboarding-report-status"><option value="">All statuses</option><option value="pending">Pending</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+                <label>Role<select id="onboarding-report-role"><option value="">All roles</option></select></label>
+                <label>Shift<select id="onboarding-report-shift"><option value="">All shifts</option></select></label>
+                <label>Joining date from<input id="onboarding-report-join-from" type="date" /></label>
+                <label>Joining date to<input id="onboarding-report-join-to" type="date" /></label>
+              </div>
               <div id="onboarding-report-fields" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;"></div>
-              <button id="download-onboarding-report" class="btn btn-primary" type="button" style="margin-top:14px;">Download selected report</button>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px;">
+                <button id="show-onboarding-report" class="btn btn-outline" type="button">Show report</button>
+                <button id="download-onboarding-report" class="btn btn-primary" type="button">Export filtered report</button>
+                <span id="onboarding-report-count" style="color:var(--muted); font-weight:700;"></span>
+              </div>
+              <div class="table-wrap" style="margin-top:14px;">
+                <table>
+                  <thead><tr id="onboarding-report-preview-head"></tr></thead>
+                  <tbody id="onboarding-report-preview-body"></tbody>
+                </table>
+              </div>
             </details>
             <div class="table-wrap" style="margin-top:12px;">
               <table>

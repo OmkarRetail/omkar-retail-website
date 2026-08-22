@@ -13,7 +13,7 @@
   let dashboardRendered = false;
   let onboardingProfiles = [];
   let currentAdminRole = "";
-  let currentOnboardingFilter = "pending";
+  let currentOnboardingFilter = "active";
 
   const els = {
     accessForm: document.getElementById("admin-access-form"),
@@ -33,7 +33,17 @@
     onboardingNote: document.getElementById("onboarding-admin-note"),
     refreshOnboarding: document.getElementById("refresh-onboarding"),
     onboardingReportFields: document.getElementById("onboarding-report-fields"),
+    showOnboardingReport: document.getElementById("show-onboarding-report"),
     downloadOnboardingReport: document.getElementById("download-onboarding-report"),
+    onboardingReportSearch: document.getElementById("onboarding-report-search"),
+    onboardingReportStatus: document.getElementById("onboarding-report-status"),
+    onboardingReportRole: document.getElementById("onboarding-report-role"),
+    onboardingReportShift: document.getElementById("onboarding-report-shift"),
+    onboardingReportJoinFrom: document.getElementById("onboarding-report-join-from"),
+    onboardingReportJoinTo: document.getElementById("onboarding-report-join-to"),
+    onboardingReportCount: document.getElementById("onboarding-report-count"),
+    onboardingReportPreviewHead: document.getElementById("onboarding-report-preview-head"),
+    onboardingReportPreviewBody: document.getElementById("onboarding-report-preview-body"),
     applicationsBody: document.getElementById("applications-body"),
     employerBody: document.getElementById("employers-body"),
     contactsBody: document.getElementById("contacts-body"),
@@ -260,20 +270,109 @@
     });
   }
 
-  function downloadOnboardingReport() {
+  function setupOnboardingReportFilters() {
+    if (els.onboardingReportRole && els.onboardingReportRole.options.length === 1) {
+      employeeRoleOptions.forEach((role) => {
+        const option = document.createElement("option");
+        option.value = role;
+        option.textContent = role;
+        els.onboardingReportRole.appendChild(option);
+      });
+    }
+    if (els.onboardingReportShift && els.onboardingReportShift.options.length === 1) {
+      Object.entries(employeeShiftOptions).forEach(([employmentType, shifts]) => {
+        shifts.forEach((time) => {
+          const option = document.createElement("option");
+          option.value = `${employmentType} | ${time}`;
+          option.textContent = `${employmentType} — ${time}`;
+          els.onboardingReportShift.appendChild(option);
+        });
+      });
+    }
+  }
+
+  function getSelectedOnboardingReportColumns() {
     const selectedKeys = Array.from(els.onboardingReportFields?.querySelectorAll('input[type="checkbox"]:checked') || []).map((input) => input.value);
-    const selectedColumns = onboardingReportColumns.filter((column) => selectedKeys.includes(column.key));
+    return onboardingReportColumns.filter((column) => selectedKeys.includes(column.key));
+  }
+
+  function getFilteredOnboardingProfiles() {
+    const search = String(els.onboardingReportSearch?.value || "").trim().toLowerCase();
+    const status = String(els.onboardingReportStatus?.value || "").trim().toLowerCase();
+    const role = String(els.onboardingReportRole?.value || "").trim();
+    const shift = String(els.onboardingReportShift?.value || "").trim();
+    const joiningFrom = String(els.onboardingReportJoinFrom?.value || "").trim();
+    const joiningTo = String(els.onboardingReportJoinTo?.value || "").trim();
+    return onboardingProfiles.filter((row) => {
+      const joiningDate = String(row.dateOfJoining || "").slice(0, 10);
+      const searchable = [row.fullName, row.employeeId, row.submittedEmployeeId, row.mobile, row.personalEmail, row.email].join(" ").toLowerCase();
+      return (!search || searchable.includes(search))
+        && (!status || String(row.status || "pending").toLowerCase() === status)
+        && (!role || employeeRoleLabel(row) === role)
+        && (!shift || normaliseEmployeeShift(row.assignedShift) === shift)
+        && (!joiningFrom || (joiningDate && joiningDate >= joiningFrom))
+        && (!joiningTo || (joiningDate && joiningDate <= joiningTo));
+    });
+  }
+
+  function renderOnboardingReportPreview() {
+    const selectedColumns = getSelectedOnboardingReportColumns();
+    const rows = getFilteredOnboardingProfiles();
+    const summary = rows.reduce((counts, row) => {
+      const status = String(row.status || "pending").toLowerCase();
+      counts[status] = (counts[status] || 0) + 1;
+      return counts;
+    }, { active: 0, pending: 0, inactive: 0 });
+    if (els.onboardingReportCount) {
+      els.onboardingReportCount.textContent = `${rows.length} selected · ${summary.active} Active · ${summary.pending} Pending · ${summary.inactive} Inactive`;
+    }
+    if (!els.onboardingReportPreviewHead || !els.onboardingReportPreviewBody) return;
+    els.onboardingReportPreviewHead.innerHTML = "";
+    els.onboardingReportPreviewBody.innerHTML = "";
+    if (!selectedColumns.length) {
+      els.onboardingReportPreviewBody.appendChild(createCellRow(["Select at least one report field to view the report."]));
+      return;
+    }
+    selectedColumns.forEach((column) => {
+      const th = document.createElement("th");
+      th.textContent = column.label;
+      els.onboardingReportPreviewHead.appendChild(th);
+    });
+    if (!rows.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = selectedColumns.length;
+      td.textContent = "No employees match the selected filters.";
+      tr.appendChild(td);
+      els.onboardingReportPreviewBody.appendChild(tr);
+      return;
+    }
+    rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      selectedColumns.forEach((column) => {
+        const td = document.createElement("td");
+        td.textContent = column.value(row) || "-";
+        tr.appendChild(td);
+      });
+      els.onboardingReportPreviewBody.appendChild(tr);
+    });
+  }
+
+  function downloadOnboardingReport() {
+    const selectedColumns = getSelectedOnboardingReportColumns();
     if (!selectedColumns.length) {
       showOnboardingNote("Select at least one report field.", "error");
       return;
     }
-    if (!onboardingProfiles.length) {
-      showOnboardingNote("There are no onboarding profiles to include in a report yet.", "error");
+    const filteredRows = getFilteredOnboardingProfiles();
+    if (!filteredRows.length) {
+      showOnboardingNote("No employees match the selected report filters.", "error");
       return;
     }
-    const csv = toCsv(onboardingProfiles, selectedColumns.map((column) => column.label), (row) => selectedColumns.map((column) => column.value(row)));
+    const csv = toCsv(filteredRows, selectedColumns.map((column) => column.label), (row) => selectedColumns.map((column) => column.value(row)));
     downloadCsv("onboarding-report.csv", csv);
-    showOnboardingNote("Your selected onboarding report has been downloaded.", "success");
+    renderOnboardingReportPreview();
+    showOnboardingNote("Your filtered employee report has been downloaded.", "success");
   }
 
   function downloadCsv(filename, text) {
@@ -439,6 +538,7 @@
       }).sort((a, b) => String(b.submittedAt || "").localeCompare(String(a.submittedAt || "")));
       const deletedCount = await deleteExpiredInactiveProfiles(db, firestoreMod);
       renderOnboardingTable();
+      renderOnboardingReportPreview();
       if (deletedCount) {
         showOnboardingNote(`${deletedCount} inactive employee record${deletedCount === 1 ? "" : "s"} expired after 90 days and ${deletedCount === 1 ? "was" : "were"} deleted.`, "success");
       } else {
@@ -825,6 +925,25 @@
   }
 
   renderOnboardingReportFields();
+  setupOnboardingReportFilters();
+  renderOnboardingReportPreview();
+
+  if (els.showOnboardingReport) {
+    els.showOnboardingReport.addEventListener("click", renderOnboardingReportPreview);
+  }
+
+  [
+    els.onboardingReportSearch,
+    els.onboardingReportStatus,
+    els.onboardingReportRole,
+    els.onboardingReportShift,
+    els.onboardingReportJoinFrom,
+    els.onboardingReportJoinTo,
+    els.onboardingReportFields
+  ].filter(Boolean).forEach((control) => {
+    control.addEventListener("input", renderOnboardingReportPreview);
+    control.addEventListener("change", renderOnboardingReportPreview);
+  });
 
   if (els.downloadOnboardingReport) {
     els.downloadOnboardingReport.addEventListener("click", downloadOnboardingReport);

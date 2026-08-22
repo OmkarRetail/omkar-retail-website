@@ -481,7 +481,7 @@
     }
     visibleProfiles.forEach((row) => {
       const tr = document.createElement("tr");
-      [row.fullName, row.personalEmail || row.email, row.mobile, row.dateOfJoining || "-"].forEach((value) => {
+      [row.fullName, row.mobile, row.dateOfJoining || "-"].forEach((value) => {
         const td = document.createElement("td");
         td.textContent = value || "-";
         tr.appendChild(td);
@@ -547,9 +547,6 @@
       const dateCell = document.createElement("td");
       dateCell.textContent = formatDate(row.submittedAt);
       tr.appendChild(dateCell);
-      const retentionCell = document.createElement("td");
-      retentionCell.textContent = formatDate(row.inactiveUntil);
-      tr.appendChild(retentionCell);
       const actionCell = document.createElement("td");
       if (canManageOnboarding()) {
         const status = String(row.status || "pending").toLowerCase();

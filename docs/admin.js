@@ -92,7 +92,8 @@
     "FR_CC",
     "FR_Shift_Incharge",
     "Security",
-    "FR_Loader"
+    "FR_Loader",
+    "FR_Part_Time"
   ];
   const employeeShiftOptions = {
     "Full time": ["7-4", "8-5", "9-6", "10-7", "11-8", "4-1"],

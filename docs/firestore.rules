@@ -29,7 +29,8 @@ service cloud.firestore {
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.status == "pending"
-        && request.resource.data.employeeId == "";
+        && request.resource.data.employeeId == ""
+        && !request.resource.data.keys().hasAny(["assignedRole"]);
       allow update: if isOwnerAdmin() || (
         ownsProfile(userId)
         && !isDisabledEmployee(userId)
@@ -40,11 +41,13 @@ service cloud.firestore {
         && request.resource.data.employeeId == resource.data.employeeId
         && request.resource.data.approvedBy == resource.data.approvedBy
         && request.resource.data.approvedAt == resource.data.approvedAt
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["assignedRole"])
       );
+      allow delete: if isOwnerAdmin();
     }
 
     // Contains no employee personal data. It blocks an inactive account only
-    // during its 90-day retention period, then TTL removes this marker too.
+    // during its 90-day retention period, then the owner dashboard removes it.
     match /disabledAccounts/{userId} {
       allow read: if isReportAdmin() || ownsProfile(userId);
       allow create: if isOwnerAdmin() && request.resource.data.uid == userId;

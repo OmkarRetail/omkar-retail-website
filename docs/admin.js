@@ -279,7 +279,7 @@
         els.onboardingReportRole.appendChild(option);
       });
     }
-    if (els.onboardingReportShift && els.onboardingReportShift.options.length === 1) {
+    if (els.onboardingReportShift && els.onboardingReportShift.options.length === 0) {
       Object.entries(employeeShiftOptions).forEach(([employmentType, shifts]) => {
         shifts.forEach((time) => {
           const option = document.createElement("option");
@@ -300,7 +300,7 @@
     const search = String(els.onboardingReportSearch?.value || "").trim().toLowerCase();
     const status = String(els.onboardingReportStatus?.value || "").trim().toLowerCase();
     const role = String(els.onboardingReportRole?.value || "").trim();
-    const shift = String(els.onboardingReportShift?.value || "").trim();
+    const selectedShifts = Array.from(els.onboardingReportShift?.selectedOptions || []).map((option) => option.value).filter(Boolean);
     const joiningFrom = String(els.onboardingReportJoinFrom?.value || "").trim();
     const joiningTo = String(els.onboardingReportJoinTo?.value || "").trim();
     return onboardingProfiles.filter((row) => {
@@ -309,7 +309,7 @@
       return (!search || searchable.includes(search))
         && (!status || String(row.status || "pending").toLowerCase() === status)
         && (!role || employeeRoleLabel(row) === role)
-        && (!shift || normaliseEmployeeShift(row.assignedShift) === shift)
+        && (!selectedShifts.length || selectedShifts.includes(normaliseEmployeeShift(row.assignedShift)))
         && (!joiningFrom || (joiningDate && joiningDate >= joiningFrom))
         && (!joiningTo || (joiningDate && joiningDate <= joiningTo));
     });

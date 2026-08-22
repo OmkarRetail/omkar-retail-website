@@ -94,6 +94,10 @@
     "Security",
     "FR_Loader"
   ];
+  const employeeShiftOptions = {
+    "Full time": ["7-4", "8-5", "9-6", "10-7", "11-8", "4-1"],
+    "Part Time": ["6-10", "4-8", "5-9", "7-11"]
+  };
 
   function normaliseEmployeeRole(value) {
     const raw = String(value || "").trim();
@@ -106,6 +110,13 @@
 
   function employeeRoleLabel(row) {
     return normaliseEmployeeRole(row?.assignedRole || row?.designation) || "-";
+  }
+
+  function normaliseEmployeeShift(value) {
+    const shift = String(value || "").trim();
+    return Object.entries(employeeShiftOptions).some(([employmentType, shifts]) =>
+      shifts.some((time) => `${employmentType} | ${time}` === shift)
+    ) ? shift : "";
   }
 
   function showOnboardingNote(message, type) {
@@ -209,6 +220,7 @@
     { key: "fullName", label: "Full Name", value: (row) => row.fullName },
     { key: "status", label: "Status", value: (row) => row.status || "pending" },
     { key: "assignedRole", label: "Role", value: (row) => employeeRoleLabel(row) },
+    { key: "assignedShift", label: "Shift", value: (row) => normaliseEmployeeShift(row.assignedShift) || "-" },
     { key: "mobile", label: "Mobile Number", value: (row) => row.mobile },
     { key: "personalEmail", label: "Personal Email", value: (row) => row.personalEmail },
     { key: "loginEmail", label: "Login Email", value: (row) => row.email },
@@ -232,7 +244,7 @@
 
   function renderOnboardingReportFields() {
     if (!els.onboardingReportFields || els.onboardingReportFields.childElementCount) return;
-    const initiallySelected = new Set(["employeeId", "fullName", "mobile", "personalEmail", "dateOfJoining", "status", "assignedRole"]);
+    const initiallySelected = new Set(["employeeId", "fullName", "mobile", "personalEmail", "dateOfJoining", "status", "assignedRole", "assignedShift"]);
     onboardingReportColumns.forEach((column) => {
       const label = document.createElement("label");
       label.style.margin = "0";
@@ -507,6 +519,31 @@
         roleCell.textContent = employeeRoleLabel(row);
       }
       tr.appendChild(roleCell);
+      const shiftCell = document.createElement("td");
+      if (canManageOnboarding()) {
+        const shiftSelect = document.createElement("select");
+        shiftSelect.dataset.employeeShiftFor = row.id;
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Select shift";
+        shiftSelect.appendChild(placeholder);
+        Object.entries(employeeShiftOptions).forEach(([employmentType, shifts]) => {
+          const group = document.createElement("optgroup");
+          group.label = employmentType;
+          shifts.forEach((time) => {
+            const shiftOption = document.createElement("option");
+            shiftOption.value = `${employmentType} | ${time}`;
+            shiftOption.textContent = time;
+            shiftOption.selected = shiftOption.value === normaliseEmployeeShift(row.assignedShift);
+            group.appendChild(shiftOption);
+          });
+          shiftSelect.appendChild(group);
+        });
+        shiftCell.appendChild(shiftSelect);
+      } else {
+        shiftCell.textContent = normaliseEmployeeShift(row.assignedShift) || "-";
+      }
+      tr.appendChild(shiftCell);
       const dateCell = document.createElement("td");
       dateCell.textContent = formatDate(row.submittedAt);
       tr.appendChild(dateCell);
@@ -555,6 +592,8 @@
     const employeeId = String(idField?.value || "").trim();
     const roleField = document.querySelector(`[data-employee-role-for="${profileId}"]`);
     const assignedRole = normaliseEmployeeRole(roleField?.value);
+    const shiftField = document.querySelector(`[data-employee-shift-for="${profileId}"]`);
+    const assignedShift = normaliseEmployeeShift(shiftField?.value);
     if (!employeeId) {
       showOnboardingNote("Enter an Employee ID before activating the account.", "error");
       return;
@@ -575,6 +614,7 @@
         status: "active",
         employeeId,
         assignedRole,
+        assignedShift,
         roleUpdatedBy: firebaseAuth?.currentUser?.email || "",
         roleUpdatedAt: firestoreMod.serverTimestamp(),
         approvedBy: firebaseAuth?.currentUser?.email || "",
@@ -591,6 +631,36 @@
     } catch (error) {
       console.error("Employee activation failed", error);
       showOnboardingNote("Unable to activate this account. Check the Firebase rules and try again.", "error");
+    }
+  }
+
+  async function updateEmployeeShift(profileId, selectedShift) {
+    if (!canManageOnboarding()) {
+      showOnboardingNote("Your account has report-only access.", "error");
+      return;
+    }
+    const assignedShift = normaliseEmployeeShift(selectedShift);
+    if (!assignedShift) {
+      showOnboardingNote("Select a shift before saving.", "error");
+      return;
+    }
+    showOnboardingNote("Saving employee shift...");
+    try {
+      const [app, firestoreMod] = await Promise.all([
+        getFirebaseApp(),
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")
+      ]);
+      const db = firestoreMod.getFirestore(app);
+      await firestoreMod.updateDoc(firestoreMod.doc(db, "employeeProfiles", profileId), {
+        assignedShift,
+        shiftUpdatedBy: firebaseAuth?.currentUser?.email || "",
+        shiftUpdatedAt: firestoreMod.serverTimestamp()
+      });
+      await loadOnboardingProfiles();
+      showOnboardingNote("Employee shift updated.", "success");
+    } catch (error) {
+      console.error("Employee shift update failed", error);
+      showOnboardingNote("Unable to update the shift. Check the Firebase rules and try again.", "error");
     }
   }
 
@@ -772,6 +842,8 @@
     els.onboardingBody.addEventListener("change", (event) => {
       const employeeRole = event.target.closest("[data-employee-role-for]");
       if (employeeRole) updateEmployeeRole(employeeRole.dataset.employeeRoleFor, employeeRole.value);
+      const employeeShift = event.target.closest("[data-employee-shift-for]");
+      if (employeeShift) updateEmployeeShift(employeeShift.dataset.employeeShiftFor, employeeShift.value);
     });
   }
 

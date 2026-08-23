@@ -195,7 +195,7 @@
   function calculate() {
     if (!files.attendance || !files.master || !files.structure) return status("Please select all three Excel files first.", "error");
     Promise.all([readFile(files.attendance), readFile(files.master), readFile(files.structure)]).then(([attendanceBook, masterBook, structureBook]) => {
-      const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "muster_status"]);
+      const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]);
       const master = buildMasterMap(workbookRows(masterBook, "Employee_Shift", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]), workbookRows(masterBook, "Master", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]));
       const filter = $("employeeFilter");
       if (!filter.dataset.loaded) { [...master.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((employee) => filter.insertAdjacentHTML("beforeend", `<option value="${escape(employee.id)}">${escape(employee.name)} (${escape(employee.id)})</option>`)); filter.dataset.loaded = "1"; }
@@ -212,7 +212,7 @@
       if (outsideCycleDates.length) return status(`Double-pay date${outsideCycleDates.length === 1 ? "" : "s"} must fall within this salary cycle: ${outsideCycleDates.join(", ")}.`, "error");
       attendance.forEach((record) => {
         const dateKey = calendarDate(record.scheduleddate); const id = text(record.employeecode);
-        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !master.has(id)) return;
+        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !master.has(id) || !/^FR_/i.test(text(record.currentrolename))) return;
         if (!grouped.has(id)) grouped.set(id, new Map()); const dates = grouped.get(id);
         if (!dates.has(dateKey)) dates.set(dateKey, { statuses: [], locations: [] });
         const entry = dates.get(dateKey); entry.statuses.push(text(record.musterstatus).toUpperCase()); if (text(record.storename)) entry.locations.push(text(record.storename));

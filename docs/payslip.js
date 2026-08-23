@@ -212,7 +212,8 @@
       if (outsideCycleDates.length) return status(`Double-pay date${outsideCycleDates.length === 1 ? "" : "s"} must fall within this salary cycle: ${outsideCycleDates.join(", ")}.`, "error");
       attendance.forEach((record) => {
         const dateKey = calendarDate(record.scheduleddate); const id = text(record.employeecode);
-        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !master.has(id) || !/^FR_/i.test(text(record.currentrolename))) return;
+        const attendanceRole = text(record.currentrolename);
+        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !master.has(id) || normal(attendanceRole) === "flexcity" || !/^FR_/i.test(attendanceRole)) return;
         if (!grouped.has(id)) grouped.set(id, new Map()); const dates = grouped.get(id);
         if (!dates.has(dateKey)) dates.set(dateKey, { statuses: [], locations: [] });
         const entry = dates.get(dateKey); entry.statuses.push(text(record.musterstatus).toUpperCase()); if (text(record.storename)) entry.locations.push(text(record.storename));

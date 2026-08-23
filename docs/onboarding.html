@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260823-required-fields" />
   </head>
   <body>
     <header class="site-header">
@@ -89,31 +89,31 @@
 
             <form id="onboarding-form" class="form-grid two">
               <div>
-                <label for="employee-name">Full name</label>
+                <label for="employee-name">Full name <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-name" name="fullName" autocomplete="name" required />
               </div>
               <div>
-                <label for="employee-mobile">Mobile number</label>
+                <label for="employee-mobile">Mobile number <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-mobile" name="mobile" inputmode="numeric" autocomplete="tel" pattern="[0-9]{10}" placeholder="10-digit number" required />
               </div>
               <div>
-                <label for="employee-id">Employee ID</label>
+                <label for="employee-id">Employee ID <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-id" name="submittedEmployeeId" placeholder="Enter your Employee ID" required />
               </div>
               <div>
-                <label for="employee-personal-email">Personal email address</label>
+                <label for="employee-personal-email">Personal email address <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-personal-email" name="personalEmail" type="email" autocomplete="email" required />
               </div>
               <div>
-                <label for="employee-dob">Date of birth</label>
+                <label for="employee-dob">Date of birth <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-dob" name="dateOfBirth" type="date" required />
               </div>
               <div>
-                <label for="employee-doj">Date of joining</label>
+                <label for="employee-doj">Date of joining <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-doj" name="dateOfJoining" type="date" required />
               </div>
               <div>
-                <label for="employee-marital-status">Marital status</label>
+                <label for="employee-marital-status">Marital status <span class="required-mark" aria-hidden="true">*</span></label>
                 <select id="employee-marital-status" name="maritalStatus" required>
                   <option value="">Select</option>
                   <option>Single</option>
@@ -121,43 +121,43 @@
                 </select>
               </div>
               <div>
-                <label for="employee-emergency-name">Emergency contact name</label>
+                <label for="employee-emergency-name">Emergency contact name <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-emergency-name" name="emergencyContactName" required />
               </div>
               <div>
-                <label for="employee-emergency-mobile">Emergency contact number</label>
+                <label for="employee-emergency-mobile">Emergency contact number <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-emergency-mobile" name="emergencyContactMobile" inputmode="numeric" pattern="[0-9]{10}" placeholder="10-digit number" required />
               </div>
               <div>
-                <label for="employee-pan">PAN</label>
+                <label for="employee-pan">PAN <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-pan" name="pan" maxlength="10" style="text-transform:uppercase" required />
               </div>
               <div>
-                <label for="employee-uan">UAN</label>
+                <label for="employee-uan">UAN <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-uan" name="uan" placeholder="Enter NA if not available" required />
               </div>
               <div>
-                <label for="employee-nominee-name">PF nominee name</label>
+                <label for="employee-nominee-name">PF nominee name <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-nominee-name" name="nomineeName" required />
               </div>
               <div>
-                <label for="employee-nominee-relation">Nominee relationship</label>
+                <label for="employee-nominee-relation">Nominee relationship <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-nominee-relation" name="nomineeRelationship" required />
               </div>
               <div>
-                <label for="employee-bank-name">Bank name</label>
+                <label for="employee-bank-name">Bank name <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-bank-name" name="bankName" required />
               </div>
               <div>
-                <label for="employee-account-number">Bank account number</label>
+                <label for="employee-account-number">Bank account number <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-account-number" name="bankAccountNumber" inputmode="numeric" required />
               </div>
               <div>
-                <label for="employee-ifsc">IFSC code</label>
+                <label for="employee-ifsc">IFSC code <span class="required-mark" aria-hidden="true">*</span></label>
                 <input id="employee-ifsc" name="ifsc" style="text-transform:uppercase" required />
               </div>
               <div class="full-span">
-                <label for="employee-address">Current address</label>
+                <label for="employee-address">Current address <span class="required-mark" aria-hidden="true">*</span></label>
                 <textarea id="employee-address" name="currentAddress" rows="3" required></textarea>
               </div>
 

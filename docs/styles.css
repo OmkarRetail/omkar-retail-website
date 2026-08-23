@@ -673,6 +673,11 @@ label {
   margin: 0 0 6px;
 }
 
+.required-mark {
+  color: #c62828;
+  font-weight: 800;
+}
+
 input,
 select,
 textarea {

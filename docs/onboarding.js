@@ -175,7 +175,9 @@
       showNote(els.onboardingNote, "");
     } catch (error) {
       console.error("Employee profile load failed", error);
-      if (error?.code === "permission-denied" || error?.code === "account-inactive") {
+      // Only a real disabled-account record can make an employee inactive.
+      // A permissions or connection issue must never sign out a new joiner.
+      if (error?.code === "account-inactive") {
         if (inactiveAccountBlocked) return;
         inactiveAccountBlocked = true;
         try {
@@ -192,7 +194,7 @@
         }
         return;
       }
-      showNote(els.onboardingNote, "Your account was created successfully. The employee profile service is being set up; please try again shortly or contact HR if the message continues.", "error");
+      showNote(els.onboardingNote, "We could not load your saved details just now. You can complete the form below and submit it for HR review.", "error");
     }
   }
 

@@ -24,7 +24,10 @@ service cloud.firestore {
     }
 
     match /employeeProfiles/{userId} {
-      allow read: if isReportAdmin() || (ownsProfile(userId) && !isDisabledEmployee(userId) && resource.data.status != "inactive");
+      // A new joiner has no profile document until the first submission.
+      // Permit that missing-document check so the onboarding form can open.
+      allow read: if isReportAdmin() || (ownsProfile(userId) && !isDisabledEmployee(userId)
+        && (!exists(/databases/$(database)/documents/employeeProfiles/$(userId)) || resource.data.status != "inactive"));
       allow create: if ownsProfile(userId) && !isDisabledEmployee(userId)
         && request.resource.data.ownerUid == request.auth.uid
         && request.resource.data.email == request.auth.token.email

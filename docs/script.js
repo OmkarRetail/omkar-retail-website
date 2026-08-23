@@ -87,6 +87,47 @@
     }
   });
 
+  // On public pages, use the same navigation control for login and logout.
+  // The dashboard and employee portal also retain their own Logout buttons.
+  const loginLinks = document.querySelectorAll(".login-link");
+  if (loginLinks.length && config.firebase && config.firebase.apiKey) {
+    Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
+    ])
+      .then(([appMod, authMod]) => {
+        const app = appMod.getApps()[0] || appMod.initializeApp(config.firebase);
+        const auth = authMod.getAuth(app);
+
+        authMod.onAuthStateChanged(auth, (user) => {
+          loginLinks.forEach((link) => {
+            link.onclick = null;
+            if (!user) {
+              link.textContent = "Login";
+              link.href = "onboarding.html";
+              link.removeAttribute("aria-label");
+              return;
+            }
+
+            link.textContent = "Logout";
+            link.href = "#logout";
+            link.setAttribute("aria-label", "Log out of your account");
+            link.onclick = async (event) => {
+              event.preventDefault();
+              try {
+                await authMod.signOut(auth);
+              } finally {
+                window.location.href = "onboarding.html";
+              }
+            };
+          });
+        });
+      })
+      .catch(() => {
+        // Leave the normal Login link available if Firebase is temporarily unavailable.
+      });
+  }
+
   const revealItems = document.querySelectorAll(".reveal");
   if ("IntersectionObserver" in window && revealItems.length) {
     const observer = new IntersectionObserver(

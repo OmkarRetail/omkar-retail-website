@@ -71,8 +71,8 @@
       <div class="payroll-intro"><div><span class="badge">Payroll</span><h1>Generate employee payslips.</h1><p>Upload the attendance, employee master, and salary structure files. Payroll data is processed only in this browser and is not sent to the website.</p></div><a class="btn btn-outline no-print" href="apply.html#employee-support">Back to Employees</a></div>
       <section class="payroll-card no-print">
         <div class="file-grid">
-          <label class="upload"><strong>1. Attendance report</strong><small>Requires employee_code, scheduled_date, current_role_name, and muster_status.</small><input id="attendanceFile" type="file" accept=".xlsx,.xls" /></label>
-          <label class="upload"><strong>2. Employee master</strong><small>Use the Employee_Shift sheet with Z ID and Salary Structure.</small><input id="masterFile" type="file" accept=".xlsx,.xls" /></label>
+          <label class="upload"><strong>1. Attendance report</strong><small>Requires employee_code, scheduled_date, and muster_status.</small><input id="attendanceFile" type="file" accept=".xlsx,.xls" /></label>
+          <label class="upload"><strong>2. Employee master</strong><small>Use the Employee_Shift sheet with Employee ID and Salary Structure.</small><input id="masterFile" type="file" accept=".xlsx,.xls" /></label>
           <label class="upload"><strong>3. Salary structure</strong><small>Use the original workbook containing the matching structure name.</small><input id="structureFile" type="file" accept=".xlsx,.xls" /></label>
         </div>
         <div class="payroll-controls"><label>Salary-cycle month<input id="cycleMonth" type="month" /></label><label>Employee<select id="employeeFilter"><option value="">Generate all eligible employees</option></select></label><label>Double-pay dates <small>Use DD-MM-YYYY, separated by commas. Only P status receives double pay.</small><input id="doublePayDates" type="text" placeholder="15-08-2026, 26-08-2026" /></label><button id="generateButton" class="btn btn-primary" type="button">Generate payslips</button></div>

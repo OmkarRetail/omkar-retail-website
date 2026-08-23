@@ -1,5 +1,4 @@
 (function () {
-  const allowedRoles = new Set(["fribassociate", "frccassociate", "frshiftincharge", "frloader", "frpacker", "frassociateparttime"]);
   const dayValues = { P: 1, WO: 1, "A-R": 1, "F-R": 1, HD: 0.5, "HD-R": 0.5, A: 0, F: 0, L: 0, PENDING: 0 };
   const files = { attendance: null, master: null, structure: null };
   const data = { calculations: [], activeCalculation: null };
@@ -37,7 +36,7 @@
       const rows = XLSX.utils.sheet_to_json(book.Sheets[sheetName], { header: 1, defval: "", raw: true });
       for (let rowIndex = 0; rowIndex < Math.min(rows.length, 15); rowIndex++) {
         const headers = rows[rowIndex].map(normal);
-        if (!requiredHeaders.every((header) => headers.includes(normal(header)))) continue;
+        if (!requiredHeaders.every((header) => Array.isArray(header) ? header.some((option) => headers.includes(normal(option))) : headers.includes(normal(header)))) continue;
         return rows.slice(rowIndex + 1).map((row) => Object.fromEntries(rows[rowIndex].map((header, index) => [normal(header), row[index]]))).filter((row) => Object.values(row).some((value) => text(value)));
       }
     }
@@ -131,7 +130,7 @@
   function buildMasterMap(shiftRows, masterRows) {
     const employees = new Map();
     [...shiftRows, ...masterRows].forEach((row) => {
-      const id = text(row[normal("Z ID")]); if (!id) return;
+      const id = firstValue(row[normal("Employee ID")], row[normal("Z ID")]); if (!id) return;
       const prior = employees.get(id) || {};
       employees.set(id, { id, name: firstValue(row.name, prior.name), email: firstValue(row.email, prior.email), role: firstValue(row.role, prior.role), structure: firstValue(row[normal("Salary Structure")], prior.structure), doj: firstValue(row.doj, prior.doj), pan: firstValue(row.pan, prior.pan), uan: firstValue(row.uan, prior.uan), bank: firstValue(row.bank, prior.bank), accountNumber: firstValue(row[normal("Account number")], prior.accountNumber), pfNumber: firstValue(row[normal("PF number")], prior.pfNumber), location: firstValue(row.location, prior.location) });
   });
@@ -196,8 +195,8 @@
   function calculate() {
     if (!files.attendance || !files.master || !files.structure) return status("Please select all three Excel files first.", "error");
     Promise.all([readFile(files.attendance), readFile(files.master), readFile(files.structure)]).then(([attendanceBook, masterBook, structureBook]) => {
-      const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]);
-      const master = buildMasterMap(workbookRows(masterBook, "Employee_Shift", ["Name", "Z ID", "Salary Structure"]), workbookRows(masterBook, "Master", ["Name", "Z ID", "Salary Structure"]));
+      const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "muster_status"]);
+      const master = buildMasterMap(workbookRows(masterBook, "Employee_Shift", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]), workbookRows(masterBook, "Master", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]));
       const filter = $("employeeFilter");
       if (!filter.dataset.loaded) { [...master.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((employee) => filter.insertAdjacentHTML("beforeend", `<option value="${escape(employee.id)}">${escape(employee.name)} (${escape(employee.id)})</option>`)); filter.dataset.loaded = "1"; }
       const structures = structureMap(structureBook); const month = $("cycleMonth").value;
@@ -213,7 +212,7 @@
       if (outsideCycleDates.length) return status(`Double-pay date${outsideCycleDates.length === 1 ? "" : "s"} must fall within this salary cycle: ${outsideCycleDates.join(", ")}.`, "error");
       attendance.forEach((record) => {
         const dateKey = calendarDate(record.scheduleddate); const id = text(record.employeecode);
-        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !allowedRoles.has(normal(record.currentrolename)) || !master.has(id)) return;
+        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !master.has(id)) return;
         if (!grouped.has(id)) grouped.set(id, new Map()); const dates = grouped.get(id);
         if (!dates.has(dateKey)) dates.set(dateKey, { statuses: [], locations: [] });
         const entry = dates.get(dateKey); entry.statuses.push(text(record.musterstatus).toUpperCase()); if (text(record.storename)) entry.locations.push(text(record.storename));
@@ -236,7 +235,7 @@
         results.push(calculation);
       });
       data.calculations = results.sort((a, b) => a.employee.name.localeCompare(b.employee.name));
-      if (!results.length) { $("resultArea").hidden = true; return status("No eligible employees were found for this cycle. Check the role names, employee codes, cycle, and salary-structure names.", "error"); }
+      if (!results.length) { $("resultArea").hidden = true; return status("No matched employees were found for this cycle. Check employee IDs, attendance dates, and salary-structure names.", "error"); }
       $("resultArea").hidden = false; populateArrearsEmployees(data.calculations); renderSlip(results[0]); renderList(); loadArrearsForm(results[0].employee.id);
       const skipped = missingStructures.size ? ` ${missingStructures.size} salary-structure reference${missingStructures.size === 1 ? " is" : "s are"} not present in the uploaded salary workbook and were skipped: ${[...missingStructures].join(", ")}.` : "";
       const conflictNote = conflicts.length ? ` ${conflicts.length} employee${conflicts.length === 1 ? " has" : "s have"} conflicting attendance records and ${conflicts.length === 1 ? "was" : "were"} blocked for review: ${conflicts.join("; ")}.` : "";

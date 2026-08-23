@@ -59,6 +59,9 @@
         .note{color:#111;margin-top:14px;padding-top:10px;border-top:1px solid #111;font-size:11px}
       }
     </style>
+    <style>
+      .arrears-controls{display:grid;grid-template-columns:1fr 1fr 1.25fr auto auto;gap:16px;align-items:end;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.arrears-controls label{font-size:13px;font-weight:700}.arrears-controls input,.arrears-controls select{display:block;width:100%;margin-top:7px;padding:12px;border:1px solid var(--line);border-radius:8px;font:inherit}.arrears-controls small{display:block;margin-top:4px;color:var(--muted);font-weight:400;line-height:1.35}.status.success{display:block;background:#eef6ef;color:#285b34}@media(max-width:800px){.arrears-controls{grid-template-columns:1fr;align-items:stretch}}
+    </style>
   </head>
   <body>
     <!-- Payslip generator: attendance, salary, and print layout updates tracked here. -->
@@ -72,12 +75,14 @@
           <label class="upload"><strong>2. Employee master</strong><small>Use the Employee_Shift sheet with Z ID and Salary Structure.</small><input id="masterFile" type="file" accept=".xlsx,.xls" /></label>
           <label class="upload"><strong>3. Salary structure</strong><small>Use the original workbook containing the matching structure name.</small><input id="structureFile" type="file" accept=".xlsx,.xls" /></label>
         </div>
-        <div class="payroll-controls"><label>Salary-cycle month<input id="cycleMonth" type="month" /></label><label>Employee<select id="employeeFilter"><option value="">Generate all eligible employees</option></select></label><button id="generateButton" class="btn btn-primary" type="button">Generate payslips</button></div>
+        <div class="payroll-controls"><label>Salary-cycle month<input id="cycleMonth" type="month" /></label><label>Employee<select id="employeeFilter"><option value="">Generate all eligible employees</option></select></label><label>Double-pay dates <small>Use DD-MM-YYYY, separated by commas. Only P status receives double pay.</small><input id="doublePayDates" type="text" placeholder="15-08-2026, 26-08-2026" /></label><button id="generateButton" class="btn btn-primary" type="button">Generate payslips</button></div>
+        <div id="arrearsControls" class="arrears-controls" hidden><label>Arrears employee<select id="arrearsEmployee"><option value="">Generate payslips first</option></select></label><label>Arrears amount<small>Use a positive amount to pay, or a negative amount to recover.</small><input id="arrearsAmount" type="number" step="0.01" placeholder="1200" /></label><label>Arrears reason<input id="arrearsReason" type="text" maxlength="80" placeholder="Previous month attendance correction" /></label><button id="applyArrearsButton" class="btn btn-primary" type="button">Apply arrears</button><button id="clearArrearsButton" class="btn btn-outline" type="button">Remove</button></div>
         <div id="status" class="status" role="status"></div>
       </section>
-      <section id="resultArea" class="result-area" hidden><aside class="payroll-card employee-list no-print" id="employeeList"></aside><div><article class="slip" id="payslipPreview"></article><div class="print-action no-print"><button id="printButton" class="btn btn-primary" type="button">Print / Save PDF</button></div></div></section>
+      <section id="resultArea" class="result-area" hidden><aside class="payroll-card employee-list no-print" id="employeeList"></aside><div><article class="slip" id="payslipPreview"></article><div class="print-action no-print"><button id="saveToDriveButton" class="btn btn-outline" type="button">Save to Drive &amp; email</button><button id="printButton" class="btn btn-primary" type="button">Print / Save PDF</button></div></div></section>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="config.js"></script><script src="script.js"></script><script src="payslip.js?v=20260802-stipend-structure-check"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="config.js"></script><script src="script.js"></script><script src="payslip.js?v=20260822-arrears"></script>
   </body>
 </html>

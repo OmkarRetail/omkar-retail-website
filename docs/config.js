@@ -30,6 +30,8 @@ window.OMKAR_SITE_CONFIG = {
     "koushikventureofficial@gmail.com": "report"
   },
   googleAppsScriptWebAppUrl: "https://script.google.com/macros/s/AKfycbw741gSoH0FWwR6vph-KNzVPucjVsPih1AhSANdz8d371y4zVISzwkw1YjyUTOfbdjr3Q/exec",
+  // Add the separately deployed Payslip Delivery Apps Script URL here when Drive access is available.
+  payslipDeliveryWebAppUrl: "",
   googleSheetId: "135AltlhB-NsS5QmuaaRCHYko_RvW-UJGhrxi5fVM-2w",
   googleDriveResumeFolderId: "1iXpaTpB87tNlQC1eBOQm_n39nvCK-6TZ",
   googleSubmitToken: "63eda119fbe540b6b88301cdcafad154",

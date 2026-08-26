@@ -9,6 +9,7 @@
   const text = (value) => String(value ?? "").trim();
   const firstValue = (...values) => values.find((value) => text(value)) || "";
   const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));
+  const signedMoney = (value) => { const amount = Number(value || 0); return `${amount > 0 ? "+" : ""}${money(amount)}`; };
   const amountInWords = (value) => { const n = Math.round(Number(value || 0)); const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]; const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]; const underThousand = (number) => { const parts = []; if (number >= 100) { parts.push(`${ones[Math.floor(number / 100)]} Hundred`); number %= 100; } if (number >= 20) { parts.push(tens[Math.floor(number / 10)]); if (number % 10) parts.push(ones[number % 10]); } else if (number) parts.push(ones[number]); return parts.join(" "); }; if (!n) return "Rupees Zero Only"; const parts = []; let remaining = n; [[10000000, "Crore"], [100000, "Lakh"], [1000, "Thousand"]].forEach(([unit, label]) => { if (remaining >= unit) { parts.push(`${underThousand(Math.floor(remaining / unit))} ${label}`); remaining %= unit; } }); if (remaining) parts.push(underThousand(remaining)); return `Rupees ${parts.join(" ")} Only`; };
   const escape = (value) => text(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
   const status = (message, kind = "info") => { const el = $("status"); el.textContent = message; el.className = `status ${kind}`; };
@@ -102,7 +103,10 @@
     calc.pt = calc.gross > 25000 ? (calc.salaryCycleMonth === 2 ? 300 : 200) : 0;
     calc.baseDeductions = calc.pf + calc.esi + calc.pt;
     calc.deductions = calc.baseDeductions + calc.arrearsRecovery + calc.salaryAdvance;
-    calc.net = calc.gross - calc.deductions;
+    calc.netBeforeRoundOff = calc.gross - calc.deductions;
+    calc.roundOff = Math.round(calc.netBeforeRoundOff) - calc.netBeforeRoundOff;
+    if (Math.abs(calc.roundOff) < 0.005) calc.roundOff = 0;
+    calc.net = Math.round(calc.netBeforeRoundOff);
   }
 
   function populateArrearsEmployees(calculations) {
@@ -131,6 +135,8 @@
     data.activeCalculation = calc;
     const c = calc; const employee = c.employee;
     const detail = (label, value, blankWhenMissing = false) => `<div class="employee-detail"><small>${label}</small><strong>: ${escape(value || (blankWhenMissing ? "" : "Not available"))}</strong></div>`;
+    const roleKey = normal(employee.role);
+    const designation = ["frparttime", "frwarehouseintern"].includes(roleKey) ? "Warehouse Intern" : employee.role;
     const validUan = /^\d{12}$/.test(text(employee.uan)) ? text(employee.uan) : "";
     const isStipend = c.directFixed || /sti(?:pend|fund)/i.test(text(employee.structure));
     const statutoryDetails = isStipend ? "" : detail("UAN", validUan, true);
@@ -139,7 +145,7 @@
     const salaryAdvanceLabel = `Salary Advance${c.salaryAdvanceReason ? ` – ${escape(c.salaryAdvanceReason)}` : ""}`;
     const earnings = [[c.directFixed ? "Stipend Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Double Pay", c.doublePay], [arrearsLabel, c.arrearsEarning], ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
     const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
-    $("payslipPreview").innerHTML = `<div class="slip-head"><div class="slip-brand">OMKAR RETAIL VENTURES</div><div class="statement-period">Salary Statement for ${escape(c.period)}</div></div><div class="slip-person"><div class="employee-column">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", employee.role)}${detail("DAYS WORKED", `${c.paidDays} / ${c.cycleDays}`)}${c.doublePayDays ? detail("DOUBLE-PAY DAYS", c.doublePayDays) : ""}</div><div class="employee-column">${detail("PAN", employee.pan)}${statutoryDetails}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("DATE OF JOINING", displayDate(employee.doj))}</div></div><div class="slip-tables"><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>EARNINGS</span></div>${earnings}${total("GROSS EARNINGS", c.gross)}</div><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>DEDUCTIONS</span></div>${deductions}${total("TOTAL DEDUCTIONS", c.deductions)}</div></div><div class="net-pay"><span>NET PAY</span><strong>${money(c.net)}</strong></div><div class="net-words">(${escape(amountInWords(c.net))})</div><p class="note">* This is a system-generated payslip and is confidential; therefore no signature is required.</p>`;
+    $("payslipPreview").innerHTML = `<div class="slip-head"><div class="slip-brand">OMKAR RETAIL VENTURES</div><div class="statement-period">Salary Statement for ${escape(c.period)}</div></div><div class="slip-person"><div class="employee-column">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", designation)}${detail("DAYS WORKED", `${c.paidDays} / ${c.cycleDays}`)}${c.doublePayDays ? detail("DOUBLE-PAY DAYS", c.doublePayDays) : ""}</div><div class="employee-column">${detail("PAN", employee.pan)}${statutoryDetails}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("DATE OF JOINING", displayDate(employee.doj))}</div></div><div class="slip-tables"><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>EARNINGS</span></div>${earnings}${total("GROSS EARNINGS", c.gross)}</div><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>DEDUCTIONS</span></div>${deductions}${total("TOTAL DEDUCTIONS", c.deductions)}</div></div><div class="net-pay"><span>NET PAY</span><strong>${money(c.net)}</strong></div><div class="round-off"><span>Round Off</span><strong>${signedMoney(c.roundOff)}</strong></div><div class="net-words">(${escape(amountInWords(c.net))})</div><p class="note">* This is a system-generated payslip and is confidential; therefore no signature is required.</p>`;
   }
 
   function buildMasterMap(shiftRows, masterRows) {
@@ -177,15 +183,17 @@
     return `${employeeName}-${employeeId}-${salaryCycle}.pdf`;
   }
 
-  async function saveToDriveAndEmail() {
+  async function deliverPayslip(deliveryMode) {
     const config = window.OMKAR_SITE_CONFIG || {};
     const endpoint = text(config.payslipDeliveryWebAppUrl);
     const calc = data.activeCalculation;
-    if (!endpoint) return status("Drive and email delivery is not connected yet. Add the deployed Payslip Delivery Apps Script URL in config.js when Google Drive is available.", "error");
+    const sendingEmail = deliveryMode === "email";
+    if (!endpoint) return status(`${sendingEmail ? "Email" : "Drive"} delivery is not connected yet. Add the deployed Payslip Delivery Apps Script URL in config.js.`, "error");
     if (!calc || !$("payslipPreview").innerHTML) return status("Generate and select a payslip first.", "error");
     if (typeof window.html2pdf !== "function") return status("PDF delivery support could not be loaded. Check your internet connection and try again.", "error");
+    if (sendingEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text(calc.employee.email))) return status("This employee does not have a valid email address in the uploaded master sheet.", "error");
     try {
-      status("Creating the payslip PDF and sending the secure delivery request...");
+      status(`Creating the payslip PDF and sending the ${sendingEmail ? "email" : "Drive"} request...`);
       const idToken = await getOwnerDeliveryToken();
       const fileName = payslipFileName(calc);
       const pdfDataUri = await window.html2pdf().set({ margin: 6, filename: fileName, html2canvas: { scale: 2 }, jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }, pagebreak: { mode: ["avoid-all", "css", "legacy"] } }).from($("payslipPreview")).outputPdf("datauristring");
@@ -197,13 +205,14 @@
         employeeEmail: calc.employee.email || "",
         salaryCycle: calc.period,
         salaryMonth: $("cycleMonth").value,
+        deliveryMode,
         pdfBase64: pdfDataUri.split(",")[1]
       };
       await fetch(endpoint, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) });
-      status("Payslip delivery request sent. It will be saved to Drive and emailed when the employee has a valid email address.", "success");
+      status(sendingEmail ? "Payslip email request sent." : "Payslip save-to-Drive request sent.", "success");
     } catch (error) {
       console.error("Payslip delivery failed", error);
-      status(error.message || "Unable to send the payslip delivery request.", "error");
+      status(error.message || `Unable to ${sendingEmail ? "email" : "save"} the payslip.`, "error");
     }
   }
 
@@ -320,5 +329,5 @@
   ["attendanceFile", "masterFile", "structureFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
   $("arrearsEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("salaryAdvanceEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
-  $("cycleMonth").value = new Date().toISOString().slice(0, 7); $("generateButton").addEventListener("click", calculate); $("applyArrearsButton").addEventListener("click", applyArrears); $("clearArrearsButton").addEventListener("click", clearArrears); $("applySalaryAdvanceButton").addEventListener("click", applySalaryAdvance); $("clearSalaryAdvanceButton").addEventListener("click", clearSalaryAdvance); $("saveToDriveButton").addEventListener("click", saveToDriveAndEmail); $("printButton").addEventListener("click", () => window.print());
+  $("cycleMonth").value = new Date().toISOString().slice(0, 7); $("generateButton").addEventListener("click", calculate); $("applyArrearsButton").addEventListener("click", applyArrears); $("clearArrearsButton").addEventListener("click", clearArrears); $("applySalaryAdvanceButton").addEventListener("click", applySalaryAdvance); $("clearSalaryAdvanceButton").addEventListener("click", clearSalaryAdvance); $("saveToDriveButton").addEventListener("click", () => deliverPayslip("drive")); $("emailPayslipButton").addEventListener("click", () => deliverPayslip("email")); $("printButton").addEventListener("click", () => window.print());
 })();

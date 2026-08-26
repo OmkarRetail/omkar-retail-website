@@ -49,6 +49,7 @@
   function openCorrectPortal(user) {
     if (signupRequiresLogin) return;
     if (isAdminUser(user)) {
+      sessionStorage.setItem("omkar_internal_auth_navigation", "1");
       window.location.replace("admin.html");
       return;
     }
@@ -66,6 +67,10 @@
     firebaseApp = appMod.getApps()[0] || appMod.initializeApp(fb);
     firebaseAuth = authMod.getAuth(firebaseApp);
     await authMod.setPersistence(firebaseAuth, authMod.browserSessionPersistence);
+    if (localStorage.getItem("omkar_force_fresh_login") === "1") {
+      await authMod.signOut(firebaseAuth);
+      localStorage.removeItem("omkar_force_fresh_login");
+    }
     firebaseServices = {
       auth: firebaseAuth,
       authMod,

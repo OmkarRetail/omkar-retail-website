@@ -75,6 +75,10 @@
     ]);
     firebaseAuth = authMod.getAuth(app);
     await authMod.setPersistence(firebaseAuth, authMod.browserSessionPersistence);
+    if (localStorage.getItem("omkar_force_fresh_login") === "1") {
+      await authMod.signOut(firebaseAuth);
+      localStorage.removeItem("omkar_force_fresh_login");
+    }
     return firebaseAuth;
   }
 

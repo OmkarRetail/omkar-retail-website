@@ -87,17 +87,55 @@
     }
   });
 
+  const forceFreshLoginKey = "omkar_force_fresh_login";
+  const internalNavigationKey = "omkar_internal_auth_navigation";
+
+  function safeStorage(action) {
+    try { return action(); } catch (_) { return null; }
+  }
+
+  function preserveAuthForInternalNavigation(event) {
+    const link = event.target.closest("a[href]");
+    if (!link || event.defaultPrevented || link.target === "_blank" || event.button > 0) return;
+    const destination = new URL(link.href, window.location.href);
+    if (destination.origin === window.location.origin && (destination.pathname !== window.location.pathname || destination.search !== window.location.search)) {
+      safeStorage(() => sessionStorage.setItem(internalNavigationKey, "1"));
+    }
+  }
+
+  function installBrowserCloseLogout(auth, authMod) {
+    if (window.__omkarCloseLogoutInstalled) return;
+    window.__omkarCloseLogoutInstalled = true;
+    document.addEventListener("click", preserveAuthForInternalNavigation);
+    window.addEventListener("pagehide", () => {
+      const isInternalNavigation = safeStorage(() => sessionStorage.getItem(internalNavigationKey) === "1");
+      if (isInternalNavigation) {
+        safeStorage(() => sessionStorage.removeItem(internalNavigationKey));
+        return;
+      }
+      // This synchronous marker also covers mobile browsers that restore a closed tab.
+      safeStorage(() => localStorage.setItem(forceFreshLoginKey, "1"));
+      authMod.signOut(auth).catch(() => {});
+    });
+  }
+
   // On public pages, use the same navigation control for login and logout.
   // The dashboard and employee portal also retain their own Logout buttons.
   const loginLinks = document.querySelectorAll(".login-link");
-  if (loginLinks.length && config.firebase && config.firebase.apiKey) {
+  if (config.firebase && config.firebase.apiKey) {
     Promise.all([
       import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
       import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
     ])
-      .then(([appMod, authMod]) => {
+      .then(async ([appMod, authMod]) => {
         const app = appMod.getApps()[0] || appMod.initializeApp(config.firebase);
         const auth = authMod.getAuth(app);
+        await authMod.setPersistence(auth, authMod.browserSessionPersistence);
+        if (safeStorage(() => localStorage.getItem(forceFreshLoginKey) === "1")) {
+          await authMod.signOut(auth);
+          safeStorage(() => localStorage.removeItem(forceFreshLoginKey));
+        }
+        installBrowserCloseLogout(auth, authMod);
 
         authMod.onAuthStateChanged(auth, (user) => {
           loginLinks.forEach((link) => {

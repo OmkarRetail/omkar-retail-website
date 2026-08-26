@@ -128,14 +128,13 @@
     const c = calc; const employee = c.employee;
     const detail = (label, value, blankWhenMissing = false) => `<div class="employee-detail"><small>${label}</small><strong>: ${escape(value || (blankWhenMissing ? "" : "Not available"))}</strong></div>`;
     const validUan = /^\d{12}$/.test(text(employee.uan)) ? text(employee.uan) : "";
-    const pfNumber = ["", "notavailable", "na", "nan"].includes(normal(employee.pfNumber)) ? "" : text(employee.pfNumber);
     const isStipend = c.directFixed || /sti(?:pend|fund)/i.test(text(employee.structure));
-    const statutoryDetails = isStipend ? "" : `${detail("UAN", validUan, true)}${detail("PF NUMBER", pfNumber, true)}`;
+    const statutoryDetails = isStipend ? "" : detail("UAN", validUan, true);
     const arrearsLabel = `Arrears${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
     const recoveryLabel = `Arrears Recovery${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
     const salaryAdvanceLabel = `Salary Advance${c.salaryAdvanceReason ? ` – ${escape(c.salaryAdvanceReason)}` : ""}`;
     const earnings = [[c.directFixed ? "Stipend Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Double Pay", c.doublePay], [arrearsLabel, c.arrearsEarning], ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
-    const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("") || `<div class="slip-row"><span>No employee deductions in this structure</span><strong>${money(0)}</strong></div>`;
+    const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
     $("payslipPreview").innerHTML = `<div class="slip-head"><div class="slip-brand">OMKAR RETAIL VENTURES</div><div class="statement-period">Salary Statement for ${escape(c.period)}</div></div><div class="slip-person"><div class="employee-column">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", employee.role)}${detail("DAYS WORKED", `${c.paidDays} / ${c.cycleDays}`)}${c.doublePayDays ? detail("DOUBLE-PAY DAYS", c.doublePayDays) : ""}</div><div class="employee-column">${detail("PAN", employee.pan)}${statutoryDetails}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("DATE OF JOINING", displayDate(employee.doj))}</div></div><div class="slip-tables"><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>EARNINGS</span></div>${earnings}${total("GROSS EARNINGS", c.gross)}</div><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>DEDUCTIONS</span></div>${deductions}${total("TOTAL DEDUCTIONS", c.deductions)}</div></div><div class="net-pay"><span>NET PAY</span><strong>${money(c.net)}</strong></div><div class="net-words">(${escape(amountInWords(c.net))})</div><p class="note">* This is a system-generated payslip and is confidential; therefore no signature is required.</p>`;
   }
 
@@ -241,7 +240,17 @@
         const employeeDoublePayDays = dayEntries.filter(([date, entry]) => doublePayDates.has(date) && entry.statuses[0] === "P").length; const factor = paidDays / cycleDays; const doublePayFactor = employeeDoublePayDays / cycleDays;
         const basic = structure.basic * factor, hra = structure.hra * factor, special = structure.special * factor, conveyance = structure.conveyance * factor;
         const doublePay = (structure.basic + structure.hra + structure.special + structure.conveyance) * doublePayFactor; const fixedGross = basic + hra + special + conveyance + doublePay;
-    const isPartTime = /part[\s_-]*time/i.test(`${employee.role} ${employee.structure}`); const bonus = paidDays === cycleDays ? (isPartTime ? 250 : 500) : 0; const pfBasic = structure.basic * (factor + doublePayFactor); const pf = structure.hasPf ? pfBasic * 0.12 : 0, esi = structure.hasEsi ? fixedGross * 0.0075 : 0, pt = structure.professionalTax * (factor + doublePayFactor); const baseGross = fixedGross + bonus, baseDeductions = pf + esi + pt;
+        const isPartTime = /part[\s_-]*time/i.test(`${employee.role} ${employee.structure}`);
+        const bonus = paidDays === cycleDays ? (isPartTime ? 250 : 500) : 0;
+        const pfBasic = structure.basic * (factor + doublePayFactor);
+        const pf = structure.hasPf ? pfBasic * 0.12 : 0;
+        const esi = structure.hasEsi ? fixedGross * 0.0075 : 0;
+        const monthlyFixedGross = structure.basic + structure.hra + structure.special + structure.conveyance;
+        // Professional Tax is a fixed monthly deduction, never prorated.
+        // It applies only where the employee's monthly fixed gross exceeds Rs. 25,000.
+        const pt = monthlyFixedGross > 25000 ? (monthNumber === 2 ? 300 : 200) : 0;
+        const baseGross = fixedGross + bonus;
+        const baseDeductions = pf + esi + pt;
         const locations = [...new Set(dayEntries.flatMap(([, entry]) => entry.locations))];
         const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, esi, pt, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`) };
         updateArrearsForCalculation(calculation);

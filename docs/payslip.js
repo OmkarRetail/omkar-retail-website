@@ -97,6 +97,10 @@
     calc.salaryAdvance = Number.isFinite(salaryAdvance) && salaryAdvance > 0 ? salaryAdvance : 0;
     calc.salaryAdvanceReason = text(salaryAdvanceByEmployee.get(calc.employee.id)?.reason);
     calc.gross = calc.baseGross + calc.arrearsEarning;
+    // Professional Tax follows the actual Gross Earnings shown on this payslip.
+    // It is a fixed Rs. 200 in every month, except Rs. 300 for February.
+    calc.pt = calc.gross > 25000 ? (calc.salaryCycleMonth === 2 ? 300 : 200) : 0;
+    calc.baseDeductions = calc.pf + calc.esi + calc.pt;
     calc.deductions = calc.baseDeductions + calc.arrearsRecovery + calc.salaryAdvance;
     calc.net = calc.gross - calc.deductions;
   }
@@ -245,14 +249,11 @@
         const pfBasic = structure.basic * (factor + doublePayFactor);
         const pf = structure.hasPf ? pfBasic * 0.12 : 0;
         const esi = structure.hasEsi ? fixedGross * 0.0075 : 0;
-        const monthlyFixedGross = structure.basic + structure.hra + structure.special + structure.conveyance;
-        // Professional Tax is a fixed monthly deduction, never prorated.
-        // It applies only where the employee's monthly fixed gross exceeds Rs. 25,000.
-        const pt = monthlyFixedGross > 25000 ? (monthNumber === 2 ? 300 : 200) : 0;
         const baseGross = fixedGross + bonus;
-        const baseDeductions = pf + esi + pt;
+        const pt = 0;
+        const baseDeductions = pf + esi;
         const locations = [...new Set(dayEntries.flatMap(([, entry]) => entry.locations))];
-        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, esi, pt, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`) };
+        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, esi, pt, salaryCycleMonth: monthNumber, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`) };
         updateArrearsForCalculation(calculation);
         results.push(calculation);
       });

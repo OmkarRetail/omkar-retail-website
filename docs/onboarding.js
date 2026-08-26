@@ -65,6 +65,7 @@
     ]);
     firebaseApp = appMod.getApps()[0] || appMod.initializeApp(fb);
     firebaseAuth = authMod.getAuth(firebaseApp);
+    await authMod.setPersistence(firebaseAuth, authMod.browserSessionPersistence);
     firebaseServices = {
       auth: firebaseAuth,
       authMod,

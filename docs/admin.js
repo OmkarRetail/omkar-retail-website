@@ -74,6 +74,7 @@
       import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
     ]);
     firebaseAuth = authMod.getAuth(app);
+    await authMod.setPersistence(firebaseAuth, authMod.browserSessionPersistence);
     return firebaseAuth;
   }
 

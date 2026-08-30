@@ -89,6 +89,12 @@
 
   const forceFreshLoginKey = "omkar_force_fresh_login";
   const internalNavigationKey = "omkar_internal_auth_navigation";
+  // These pages manage their own sign-in flow.  Letting both this shared
+  // script and the page script clear a just-created session can cancel the
+  // first sign-in attempt on slower connections.
+  const isAuthPortal = Boolean(
+    document.getElementById("auth-panel") || document.getElementById("admin-access-form")
+  );
 
   function safeStorage(action) {
     try { return action(); } catch (_) { return null; }
@@ -131,7 +137,7 @@
         const app = appMod.getApps()[0] || appMod.initializeApp(config.firebase);
         const auth = authMod.getAuth(app);
         await authMod.setPersistence(auth, authMod.browserSessionPersistence);
-        if (safeStorage(() => localStorage.getItem(forceFreshLoginKey) === "1")) {
+        if (!isAuthPortal && safeStorage(() => localStorage.getItem(forceFreshLoginKey) === "1")) {
           await authMod.signOut(auth);
           safeStorage(() => localStorage.removeItem(forceFreshLoginKey));
         }

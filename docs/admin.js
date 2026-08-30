@@ -14,6 +14,7 @@
   let onboardingProfiles = [];
   let currentAdminRole = "";
   let currentOnboardingFilter = "active";
+  let adminLoginInProgress = false;
 
   const els = {
     accessForm: document.getElementById("admin-access-form"),
@@ -22,6 +23,8 @@
     accessNote: document.getElementById("admin-access-note"),
     resetPassword: document.getElementById("admin-reset-password"),
     logout: document.getElementById("admin-logout"),
+    signinHero: document.getElementById("admin-signin-hero"),
+    signinStrip: document.getElementById("admin-signin-strip"),
     dashboard: document.getElementById("admin-dashboard"),
     totalApplications: document.getElementById("kpi-applications"),
     totalEmployers: document.getElementById("kpi-employers"),
@@ -108,7 +111,7 @@
     "FR_Shift_Incharge",
     "Security",
     "FR_Loader",
-    "FR_Part_Time"
+    "FR_Warehouse_Intern"
   ];
   const employeeShiftOptions = {
     "Full time": ["7-4", "8-5", "9-6", "10-7", "11-8", "4-1"],
@@ -837,8 +840,18 @@
   function unlockDashboard() {
     if (dashboardRendered) return;
     dashboardRendered = true;
+    document.body.classList.add("admin-signed-in");
     if (els.dashboard) {
       els.dashboard.hidden = false;
+    }
+    if (els.logout) {
+      els.logout.hidden = false;
+    }
+    if (els.signinHero) {
+      els.signinHero.hidden = true;
+    }
+    if (els.signinStrip) {
+      els.signinStrip.hidden = true;
     }
     if (els.accessForm) {
       els.accessForm.closest(".form-shell").hidden = true;
@@ -867,6 +880,10 @@
 
   els.accessForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (adminLoginInProgress) return;
+    adminLoginInProgress = true;
+    const submitButton = els.accessForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
     const email = (els.emailInput?.value || "").trim();
     const password = els.pinInput?.value || "";
     showAccessNote("Signing in...");
@@ -887,6 +904,9 @@
     } catch (error) {
       console.error("Admin sign-in failed", error);
       showAccessNote(getLoginErrorMessage(error), "error");
+    } finally {
+      adminLoginInProgress = false;
+      if (submitButton) submitButton.disabled = false;
     }
   });
 

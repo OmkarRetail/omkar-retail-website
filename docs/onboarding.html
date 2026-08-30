@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260823-required-fields" />
+    <link rel="stylesheet" href="styles.css?v=20260826-signed-in-layout" />
   </head>
   <body>
     <header class="site-header">
@@ -20,6 +20,7 @@
           <a href="apply.html">Careers</a>
           <a href="contact.html">Contact</a>
         </nav>
+        <button id="employee-logout" class="btn btn-outline header-logout" type="button" hidden>Logout</button>
       </div>
     </header>
 
@@ -82,7 +83,6 @@
                 <h2 class="section-title">Complete your onboarding details</h2>
                 <p class="section-lead">Please enter accurate information. You can return later to update your profile while it is pending review.</p>
               </div>
-              <button id="employee-logout" class="btn btn-outline" type="button">Logout</button>
             </div>
 
             <div id="approval-status" class="approval-status" aria-live="polite"></div>
@@ -178,7 +178,7 @@
 
     <footer class="footer"><div class="container copyright">&copy; <span class="current-year"></span> <span data-company-name>OMKAR RETAIL VENTURES</span></div></footer>
     <script src="config.js"></script>
-    <script src="script.js?v=20260826-close-session"></script>
-    <script src="onboarding.js?v=20260826-session-logout"></script>
+    <script src="script.js?v=20260830-first-login-fix"></script>
+    <script src="onboarding.js?v=20260830-first-login-fix"></script>
   </body>
 </html>

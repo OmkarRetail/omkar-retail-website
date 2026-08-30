@@ -9,6 +9,7 @@
   let signupInProgress = false;
   let signupRequiresLogin = false;
   let inactiveAccountBlocked = false;
+  let adminRedirectInProgress = false;
 
   const els = {
     authPanel: document.getElementById("auth-panel"),
@@ -49,6 +50,8 @@
   function openCorrectPortal(user) {
     if (signupRequiresLogin) return;
     if (isAdminUser(user)) {
+      if (adminRedirectInProgress) return;
+      adminRedirectInProgress = true;
       sessionStorage.setItem("omkar_internal_auth_navigation", "1");
       window.location.replace("admin.html");
       return;
@@ -175,6 +178,7 @@
     signedInUser = user;
     els.authPanel.hidden = true;
     els.onboardingPanel.hidden = false;
+    if (els.employeeLogout) els.employeeLogout.hidden = false;
     showNote(els.onboardingNote, "Loading your profile...");
     try {
       await loadProfile();
@@ -194,6 +198,7 @@
           profile = null;
           els.onboardingPanel.hidden = true;
           els.authPanel.hidden = false;
+          if (els.employeeLogout) els.employeeLogout.hidden = true;
           switchAuth("signin");
           showNote(els.authNote, "This employee account is inactive. Please contact HR for assistance.", "error");
           inactiveAccountBlocked = false;
@@ -256,6 +261,8 @@
 
   els.signinForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submitButton = els.signinForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
     showNote(els.authNote, "Signing in...");
     try {
       const services = await getServices();
@@ -269,6 +276,8 @@
     } catch (error) {
       console.error("Employee sign-in failed", error);
       showNote(els.authNote, getAuthError(error), "error");
+    } finally {
+      if (submitButton && !adminRedirectInProgress) submitButton.disabled = false;
     }
   });
 
@@ -354,6 +363,7 @@
         profile = null;
         els.authPanel.hidden = false;
         els.onboardingPanel.hidden = true;
+        if (els.employeeLogout) els.employeeLogout.hidden = true;
       }
     });
   }).catch((error) => {

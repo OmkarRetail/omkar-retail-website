@@ -10,22 +10,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20260826-signed-in-layout" />
   </head>
   <body>
-    <div class="top-strip">
+    <div id="admin-signin-strip" class="top-strip">
       <div class="container">
         <span>Sign in</span>
         <div class="top-links"><a href="index.html">Back to Website</a></div>
       </div>
     </div>
 
-    <header class="site-header">
+    <header class="site-header admin-site-header">
       <div class="container nav-wrap">
         <a class="brand" href="index.html">
           <span>OMKAR RETAIL VENTURES</span>
         </a>
-        <button class="nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Open navigation">Menu</button>
+        <div class="header-actions">
+          <button id="admin-logout" class="btn btn-outline header-logout" type="button" hidden>Logout</button>
+          <button class="nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Open navigation">Menu</button>
+        </div>
       </div>
       <nav class="site-nav" data-site-nav>
         <div class="container">
@@ -37,7 +40,7 @@
     </header>
 
     <main>
-      <section class="hero">
+      <section id="admin-signin-hero" class="hero">
         <div class="container">
           <span class="badge reveal">Sign in</span>
           <h1 class="reveal">Sign in to access the Omkar Retail Ventures dashboard.</h1>
@@ -141,7 +144,6 @@
           <div class="card reveal" style="margin-top:16px;">
             <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
               <h2 class="section-title" style="margin-bottom:0;">Data Overview</h2>
-              <button id="admin-logout" class="btn btn-outline" type="button">Logout</button>
             </div>
             <p id="admin-source-mode" class="section-lead">Checking data source...</p>
             <div style="margin-top:16px;">
@@ -246,8 +248,8 @@
     </footer>
 
     <script src="config.js"></script>
-    <script src="script.js?v=20260826-close-session"></script>
-    <script src="admin.js?v=20260826-session-logout"></script>
+    <script src="script.js?v=20260830-first-login-fix"></script>
+    <script src="admin.js?v=20260830-first-login-fix"></script>
   </body>
 </html>
 

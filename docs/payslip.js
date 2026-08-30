@@ -10,6 +10,8 @@
   const firstValue = (...values) => values.find((value) => text(value)) || "";
   const money = (value) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value || 0));
   const signedMoney = (value) => { const amount = Number(value || 0); return `${amount > 0 ? "+" : ""}${money(amount)}`; };
+  const wholeRupees = (value) => Math.round(Number(value || 0));
+  const roundedDays = (value) => Math.round(Number(value || 0) * 100) / 100;
   const amountInWords = (value) => { const n = Math.round(Number(value || 0)); const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]; const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]; const underThousand = (number) => { const parts = []; if (number >= 100) { parts.push(`${ones[Math.floor(number / 100)]} Hundred`); number %= 100; } if (number >= 20) { parts.push(tens[Math.floor(number / 10)]); if (number % 10) parts.push(ones[number % 10]); } else if (number) parts.push(ones[number]); return parts.join(" "); }; if (!n) return "Rupees Zero Only"; const parts = []; let remaining = n; [[10000000, "Crore"], [100000, "Lakh"], [1000, "Thousand"]].forEach(([unit, label]) => { if (remaining >= unit) { parts.push(`${underThousand(Math.floor(remaining / unit))} ${label}`); remaining %= unit; } }); if (remaining) parts.push(underThousand(remaining)); return `Rupees ${parts.join(" ")} Only`; };
   const escape = (value) => text(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
   const status = (message, kind = "info") => { const el = $("status"); el.textContent = message; el.className = `status ${kind}`; };
@@ -83,6 +85,77 @@
     const list = $("employeeList");
     list.innerHTML = data.calculations.map((calc, index) => `<button type="button" data-index="${index}" class="${calc.employee.id === data.activeCalculation?.employee?.id ? "active" : ""}"><strong>${escape(calc.employee.name)}</strong><small>${escape(calc.employee.id)} · Net ${money(calc.net)}</small></button>`).join("");
     list.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => { const calc = data.calculations[Number(button.dataset.index)]; list.querySelectorAll("button").forEach((item) => item.classList.remove("active")); button.classList.add("active"); renderSlip(calc); loadArrearsForm(calc.employee.id); }));
+  }
+
+  function ecrMonthName(value) {
+    const match = text(value).match(/^(\d{4})-(\d{2})$/);
+    if (!match) return "Payroll";
+    return `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(match[2]) - 1]} ${match[1]}`;
+  }
+
+  function ecrRow(calc) {
+    const uan = text(calc.employee.uan).replace(/\s/g, "");
+    const pfWages = wholeRupees(calc.pfWages);
+    const employeePf = wholeRupees(calc.pf);
+    const employerEps = Math.min(1250, wholeRupees(Math.min(pfWages, 15000) * 0.0833));
+    return [
+      uan,
+      text(calc.employee.name).toUpperCase(),
+      wholeRupees(calc.gross),
+      pfWages,
+      pfWages,
+      employeePf,
+      employerEps,
+      Math.max(0, employeePf - employerEps),
+      roundedDays(Math.max(0, calc.cycleDays - calc.paidDays)),
+      0
+    ];
+  }
+
+  function downloadEcr() {
+    const calculations = data.calculations.filter((calc) => calc.pf > 0);
+    const withUan = calculations.filter((calc) => /^\d{12}$/.test(text(calc.employee.uan).replace(/\s/g, "")));
+    const withoutUan = calculations.filter((calc) => !withUan.includes(calc));
+    if (!withUan.length) {
+      return status("No PF employee with a valid 12-digit UAN is available for ECR export.", "error");
+    }
+
+    const headers = [
+      "UAN", "MEMBER NAME AS PER UAN", "GROSS WAGES", "EPF WAGES", "EDLI WAGES",
+      "EMPLOYEE PF CONTRIBUTION", "EMPLOYER EPS CONTRIBUTION", "EMPLOYER PF CONTRIBUTION",
+      "NCP DAYS (NON-CONTRIBUTORY PERIOD)", "REFUND OF ADVANCE"
+    ];
+    const sheet = XLSX.utils.aoa_to_sheet([headers, ...withUan.map(ecrRow)]);
+    sheet["!cols"] = [
+      { wch: 17 }, { wch: 31 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+      { wch: 25 }, { wch: 25 }, { wch: 24 }, { wch: 34 }, { wch: 19 }
+    ];
+    sheet["!rows"] = [{ hpt: 24 }, ...withUan.map(() => ({ hpt: 15 }))];
+    sheet["!autofilter"] = { ref: `A1:J${withUan.length + 1}` };
+
+    const headerStyle = {
+      font: { name: "Arial", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+      fill: { patternType: "solid", fgColor: { rgb: "0000FF" } },
+      alignment: { horizontal: "center", vertical: "center", wrapText: true }
+    };
+    const textStyle = { font: { name: "Arial", sz: 10 }, alignment: { vertical: "center" } };
+    const numberStyle = { font: { name: "Arial", sz: 10 }, alignment: { horizontal: "right", vertical: "center" }, numFmt: "0.##" };
+    const wholeNumberStyle = { font: { name: "Arial", sz: 10 }, alignment: { horizontal: "right", vertical: "center" }, numFmt: "0" };
+    headers.forEach((_, column) => { sheet[XLSX.utils.encode_cell({ r: 0, c: column })].s = headerStyle; });
+    withUan.forEach((_, row) => {
+      for (let column = 0; column < headers.length; column += 1) {
+        const cell = sheet[XLSX.utils.encode_cell({ r: row + 1, c: column })];
+        if (column < 2) cell.s = textStyle;
+        else if (column === 8) cell.s = numberStyle;
+        else cell.s = wholeNumberStyle;
+      }
+    });
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "ReturnSheet_1");
+    XLSX.writeFile(workbook, `ECR ${ecrMonthName($("cycleMonth").value)}.xlsx`, { bookType: "xlsx", cellStyles: true });
+    const omitted = withoutUan.length ? ` ${withoutUan.length} PF employee${withoutUan.length === 1 ? " was" : "s were"} omitted because a valid UAN is not available.` : "";
+    status(`ECR Excel downloaded with ${withUan.length} PF employee${withUan.length === 1 ? "" : "s"}.${omitted}`, "success");
   }
 
   const row = (label, value) => `<div class="slip-row"><span>${label}</span><strong>${money(value)}</strong></div>`;
@@ -183,6 +256,24 @@
     return `${employeeName}-${employeeId}-${salaryCycle}.pdf`;
   }
 
+  async function createPayslipPdf(calc) {
+    renderSlip(calc);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise((resolve) => window.setTimeout(resolve, 150));
+    const preview = $("payslipPreview");
+    if (!preview?.textContent.trim()) throw new Error("The payslip preview is empty. Generate the payslip again before saving.");
+    const pdfDataUri = await window.html2pdf().set({
+      margin: 6,
+      filename: payslipFileName(calc),
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false },
+      jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+    }).from(preview).outputPdf("datauristring");
+    if (!pdfDataUri.includes(",")) throw new Error("The payslip PDF could not be created. Please try again.");
+    return pdfDataUri;
+  }
+
   async function deliverPayslip(deliveryMode) {
     const config = window.OMKAR_SITE_CONFIG || {};
     const endpoint = text(config.payslipDeliveryWebAppUrl);
@@ -196,7 +287,7 @@
       status(`Creating the payslip PDF and sending the ${sendingEmail ? "email" : "Drive"} request...`);
       const idToken = await getOwnerDeliveryToken();
       const fileName = payslipFileName(calc);
-      const pdfDataUri = await window.html2pdf().set({ margin: 6, filename: fileName, html2canvas: { scale: 2 }, jsPDF: { unit: "mm", format: "a4", orientation: "landscape" }, pagebreak: { mode: ["avoid-all", "css", "legacy"] } }).from($("payslipPreview")).outputPdf("datauristring");
+      const pdfDataUri = await createPayslipPdf(calc);
       const payload = {
         idToken,
         fileName,
@@ -213,6 +304,40 @@
     } catch (error) {
       console.error("Payslip delivery failed", error);
       status(error.message || `Unable to ${sendingEmail ? "email" : "save"} the payslip.`, "error");
+    }
+  }
+
+  async function saveAllPayslipsToDrive() {
+    const config = window.OMKAR_SITE_CONFIG || {};
+    const endpoint = text(config.payslipDeliveryWebAppUrl);
+    const calculations = [...data.calculations];
+    const saveButton = $("saveToDriveButton");
+    if (!endpoint) return status("Drive delivery is not connected yet. Add the deployed Payslip Delivery Apps Script URL in config.js.", "error");
+    if (!calculations.length) return status("Generate the payslips first.", "error");
+    if (typeof window.html2pdf !== "function") return status("PDF delivery support could not be loaded. Check your internet connection and try again.", "error");
+
+    const originalCalculation = data.activeCalculation;
+    try {
+      saveButton.disabled = true;
+      const idToken = await getOwnerDeliveryToken();
+      const payslips = [];
+      for (let index = 0; index < calculations.length; index += 1) {
+        const calc = calculations[index];
+        status(`Preparing payslip ${index + 1} of ${calculations.length} for Drive...`);
+        const fileName = payslipFileName(calc);
+        const pdfDataUri = await createPayslipPdf(calc);
+        payslips.push({ fileName, employeeName: calc.employee.name, employeeId: calc.employee.id, pdfBase64: pdfDataUri.split(",")[1] });
+      }
+      status(`Sending ${payslips.length} payslip${payslips.length === 1 ? "" : "s"} to Drive...`);
+      await fetch(endpoint, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ idToken, salaryMonth: $("cycleMonth").value, deliveryMode: "drive-batch", payslips }) });
+      status(`${payslips.length} payslip${payslips.length === 1 ? "" : "s"} sent for saving to Drive. Open the month folder in a few moments to confirm the files are there.`, "success");
+    } catch (error) {
+      console.error("Batch Drive save failed", error);
+      status(error.message || "Unable to prepare the payslips for Drive.", "error");
+    } finally {
+      if (originalCalculation) renderSlip(originalCalculation);
+      renderList();
+      saveButton.disabled = false;
     }
   }
 
@@ -262,7 +387,7 @@
         const pt = 0;
         const baseDeductions = pf + esi;
         const locations = [...new Set(dayEntries.flatMap(([, entry]) => entry.locations))];
-        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, esi, pt, salaryCycleMonth: monthNumber, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`) };
+        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, pfWages: pfBasic, esi, pt, salaryCycleMonth: monthNumber, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`) };
         updateArrearsForCalculation(calculation);
         results.push(calculation);
       });
@@ -329,5 +454,5 @@
   ["attendanceFile", "masterFile", "structureFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
   $("arrearsEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("salaryAdvanceEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
-  $("cycleMonth").value = new Date().toISOString().slice(0, 7); $("generateButton").addEventListener("click", calculate); $("applyArrearsButton").addEventListener("click", applyArrears); $("clearArrearsButton").addEventListener("click", clearArrears); $("applySalaryAdvanceButton").addEventListener("click", applySalaryAdvance); $("clearSalaryAdvanceButton").addEventListener("click", clearSalaryAdvance); $("saveToDriveButton").addEventListener("click", () => deliverPayslip("drive")); $("emailPayslipButton").addEventListener("click", () => deliverPayslip("email")); $("printButton").addEventListener("click", () => window.print());
+  $("cycleMonth").value = new Date().toISOString().slice(0, 7); $("generateButton").addEventListener("click", calculate); $("applyArrearsButton").addEventListener("click", applyArrears); $("clearArrearsButton").addEventListener("click", clearArrears); $("applySalaryAdvanceButton").addEventListener("click", applySalaryAdvance); $("clearSalaryAdvanceButton").addEventListener("click", clearSalaryAdvance); $("downloadEcrButton").addEventListener("click", downloadEcr); $("saveToDriveButton").addEventListener("click", saveAllPayslipsToDrive); $("emailPayslipButton").addEventListener("click", () => deliverPayslip("email")); $("printButton").addEventListener("click", () => window.print());
 })();

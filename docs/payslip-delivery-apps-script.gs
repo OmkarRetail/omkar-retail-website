@@ -18,15 +18,20 @@ function doPost(event) {
   try {
     const payload = JSON.parse(event.postData.contents || "{}");
     if (!isOwner_(payload.idToken)) throw new Error("Unauthorised request.");
+    const deliveryMode = String(payload.deliveryMode || "both").toLowerCase();
+    if (deliveryMode === "drive-batch") return savePayslipBatch_(payload);
+    if (!["drive", "email", "both"].includes(deliveryMode)) throw new Error("Invalid delivery mode.");
     if (!payload.pdfBase64 || !payload.fileName) throw new Error("Missing payslip PDF data.");
-
-    const rootFolder = getPayslipRootFolder_();
-    const monthFolder = getOrCreateMonthFolder_(rootFolder, payload.salaryMonth);
     const pdf = Utilities.newBlob(Utilities.base64Decode(payload.pdfBase64), MimeType.PDF, safeFileName_(payload.fileName));
-    monthFolder.createFile(pdf);
+    if (deliveryMode === "drive" || deliveryMode === "both") {
+      const rootFolder = getPayslipRootFolder_();
+      const monthFolder = getOrCreateMonthFolder_(rootFolder, payload.salaryMonth);
+      monthFolder.createFile(pdf);
+    }
 
     const employeeEmail = String(payload.employeeEmail || "").trim();
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employeeEmail)) {
+    if (deliveryMode === "email" || deliveryMode === "both") {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(employeeEmail)) throw new Error("Employee email address is missing or invalid.");
       if (MailApp.getRemainingDailyQuota() < 1) throw new Error("Daily email quota has been reached.");
       MailApp.sendEmail({
         to: employeeEmail,
@@ -41,6 +46,27 @@ function doPost(event) {
     console.error(error);
     return response_({ ok: false, error: error.message });
   }
+}
+
+function savePayslipBatch_(payload) {
+  const payslips = Array.isArray(payload.payslips) ? payload.payslips.slice(0, 100) : [];
+  if (!payslips.length) throw new Error("No payslips were provided for Drive saving.");
+
+  const monthFolder = getOrCreateMonthFolder_(getPayslipRootFolder_(), payload.salaryMonth);
+  const failed = [];
+  let saved = 0;
+  payslips.forEach((payslip) => {
+    try {
+      if (!payslip.pdfBase64 || !payslip.fileName) throw new Error("Missing PDF data.");
+      const pdf = Utilities.newBlob(Utilities.base64Decode(payslip.pdfBase64), MimeType.PDF, safeFileName_(payslip.fileName));
+      monthFolder.createFile(pdf);
+      saved += 1;
+    } catch (error) {
+      failed.push(`${payslip.employeeName || payslip.fileName || "Unknown employee"}: ${error.message}`);
+    }
+  });
+
+  return response_({ ok: failed.length === 0, saved, failed });
 }
 
 function getPayslipRootFolder_() {

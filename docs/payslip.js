@@ -380,7 +380,8 @@
         const doublePay = (structure.basic + structure.hra + structure.special + structure.conveyance) * doublePayFactor; const fixedGross = basic + hra + special + conveyance + doublePay;
         const isPartTime = /part[\s_-]*time/i.test(`${employee.role} ${employee.structure}`);
         const bonus = paidDays === cycleDays ? (isPartTime ? 250 : 500) : 0;
-        const pfBasic = structure.basic * (factor + doublePayFactor);
+        // PF applies only to earned Basic Salary. Double Pay remains an earning, not a PF wage.
+        const pfBasic = structure.basic * factor;
         const pf = structure.hasPf ? pfBasic * 0.12 : 0;
         const esi = structure.hasEsi ? fixedGross * 0.0075 : 0;
         const baseGross = fixedGross + bonus;

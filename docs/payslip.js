@@ -4,6 +4,7 @@
   const data = { calculations: [], activeCalculation: null };
   const arrearsByEmployee = new Map();
   const salaryAdvanceByEmployee = new Map();
+  const fullFinalByEmployee = new Map();
   const $ = (id) => document.getElementById(id);
   const normal = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const text = (value) => String(value ?? "").trim();
@@ -161,6 +162,33 @@
   const row = (label, value) => `<div class="slip-row"><span>${label}</span><strong>${money(value)}</strong></div>`;
   const total = (label, value) => `<div class="slip-total"><span>${label}</span><strong>${money(value)}</strong></div>`;
 
+  function recalculateEarnedAmounts(calc, lastWorkingDate = "") {
+    const structure = calc.sourceStructure;
+    const entries = calc.sourceDayEntries.filter((entry) => !lastWorkingDate || entry.date <= lastWorkingDate);
+    const paidDays = entries.reduce((sum, entry) => sum + (dayValues[entry.status] ?? 0), 0);
+    const doublePayDays = entries.filter((entry) => calc.doublePayDateKeys.includes(entry.date) && entry.status === "P").length;
+    const factor = paidDays / calc.cycleDays;
+    const doublePayFactor = doublePayDays / calc.cycleDays;
+    calc.paidDays = paidDays;
+    calc.doublePayDays = doublePayDays;
+    calc.basic = structure.basic * factor;
+    calc.hra = structure.hra * factor;
+    calc.special = structure.special * factor;
+    calc.conveyance = structure.conveyance * factor;
+    calc.doublePay = calc.monthlyGross * doublePayFactor;
+    const isPartTime = /part[\s_-]*time/i.test(`${calc.employee.role} ${calc.employee.structure}`);
+    calc.bonus = !lastWorkingDate && paidDays === calc.cycleDays ? (isPartTime ? 250 : 500) : 0;
+    calc.pfWages = structure.basic * factor;
+    calc.pf = structure.hasPf ? calc.pfWages * 0.12 : 0;
+    const fixedGross = calc.basic + calc.hra + calc.special + calc.conveyance + calc.doublePay;
+    calc.esi = structure.hasEsi ? fixedGross * 0.0075 : 0;
+    calc.baseGross = fixedGross + calc.bonus;
+    calc.baseDeductions = calc.pf + calc.esi;
+    calc.statusSummary = [...new Set(entries.map((entry) => entry.status))].join(", ") || "No records";
+    calc.countedDates = entries.map((entry) => `${entry.date} (${entry.status})`);
+    calc.location = firstValue([...new Set(entries.flatMap((entry) => entry.locations))].join(", "), calc.employee.location);
+  }
+
   function updateArrearsForCalculation(calc, adjustment = arrearsByEmployee.get(calc.employee.id)) {
     const amount = Number(adjustment?.amount || 0);
     calc.arrears = Number.isFinite(amount) ? amount : 0;
@@ -175,7 +203,16 @@
     // It is a fixed Rs. 200 in every month, except Rs. 300 for February.
     calc.pt = calc.gross > 25000 ? (calc.salaryCycleMonth === 2 ? 300 : 200) : 0;
     calc.baseDeductions = calc.pf + calc.esi + calc.pt;
-    calc.deductions = calc.baseDeductions + calc.arrearsRecovery + calc.salaryAdvance;
+    const fullFinal = fullFinalByEmployee.get(calc.employee.id);
+    calc.lastWorkingDate = text(fullFinal?.lastWorkingDate);
+    calc.noticeRecoveryDays = Number(fullFinal?.noticeRecoveryDays || 0);
+    calc.fullFinalNote = text(fullFinal?.note);
+    calc.isFullFinal = Boolean(fullFinal);
+    const requestedNoticeRecovery = calc.noticeRecoveryDays > 0 ? (calc.monthlyGross / 30) * calc.noticeRecoveryDays : 0;
+    const payableBeforeNoticeRecovery = calc.gross - calc.baseDeductions - calc.arrearsRecovery - calc.salaryAdvance;
+    calc.noticeRecovery = Math.min(requestedNoticeRecovery, Math.max(0, payableBeforeNoticeRecovery));
+    calc.noticeRecoveryBalance = Math.max(0, requestedNoticeRecovery - calc.noticeRecovery);
+    calc.deductions = calc.baseDeductions + calc.arrearsRecovery + calc.salaryAdvance + calc.noticeRecovery;
     calc.netBeforeRoundOff = calc.gross - calc.deductions;
     calc.roundOff = Math.round(calc.netBeforeRoundOff) - calc.netBeforeRoundOff;
     if (Math.abs(calc.roundOff) < 0.005) calc.roundOff = 0;
@@ -187,8 +224,11 @@
     select.innerHTML = calculations.map((calc) => `<option value="${escape(calc.employee.id)}">${escape(calc.employee.name)} (${escape(calc.employee.id)})</option>`).join("");
     const salaryAdvanceSelect = $("salaryAdvanceEmployee");
     salaryAdvanceSelect.innerHTML = select.innerHTML;
+    const fullFinalSelect = $("fullFinalEmployee");
+    fullFinalSelect.innerHTML = select.innerHTML;
     $("arrearsControls").hidden = !calculations.length;
     $("salaryAdvanceControls").hidden = !calculations.length;
+    $("fullFinalControls").hidden = !calculations.length;
   }
 
   function loadArrearsForm(employeeId) {
@@ -202,6 +242,11 @@
     const salaryAdvance = salaryAdvanceByEmployee.get(employeeId);
     $("salaryAdvanceAmount").value = salaryAdvance?.amount || "";
     $("salaryAdvanceReason").value = salaryAdvance?.reason || "";
+    $("fullFinalEmployee").value = employeeId;
+    const fullFinal = fullFinalByEmployee.get(employeeId);
+    $("lastWorkingDate").value = fullFinal?.lastWorkingDate || "";
+    $("noticeRecoveryDays").value = fullFinal?.noticeRecoveryDays ?? 15;
+    $("fullFinalNote").value = fullFinal?.note || "";
   }
 
   function renderSlip(calc) {
@@ -216,9 +261,12 @@
     const arrearsLabel = `Arrears${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
     const recoveryLabel = `Arrears Recovery${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
     const salaryAdvanceLabel = `Salary Advance${c.salaryAdvanceReason ? ` – ${escape(c.salaryAdvanceReason)}` : ""}`;
+    const noticeRecoveryLabel = `Notice Period Recovery – ${c.noticeRecoveryDays} Day${c.noticeRecoveryDays === 1 ? "" : "s"}`;
     const earnings = [[c.directFixed ? "Stipend Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Double Pay", c.doublePay], [arrearsLabel, c.arrearsEarning], ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
-    const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
-    $("payslipPreview").innerHTML = `<div class="slip-head"><div class="slip-brand">OMKAR RETAIL VENTURES</div><div class="statement-period">Salary Statement for ${escape(c.period)}</div></div><div class="slip-person"><div class="employee-column">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", designation)}${detail("DAYS WORKED", `${c.paidDays} / ${c.cycleDays}`)}${c.doublePayDays ? detail("DOUBLE-PAY DAYS", c.doublePayDays) : ""}</div><div class="employee-column">${detail("PAN", employee.pan)}${statutoryDetails}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("DATE OF JOINING", displayDate(employee.doj))}</div></div><div class="slip-tables"><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>EARNINGS</span></div>${earnings}${total("GROSS EARNINGS", c.gross)}</div><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>DEDUCTIONS</span></div>${deductions}${total("TOTAL DEDUCTIONS", c.deductions)}</div></div><div class="net-pay"><span>NET PAY</span><strong>${money(c.net)}</strong></div><div class="round-off"><span>Round Off</span><strong>${signedMoney(c.roundOff)}</strong></div><div class="net-words">(${escape(amountInWords(c.net))})</div><p class="note">* This is a system-generated payslip and is confidential; therefore no signature is required.</p>`;
+    const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance], [noticeRecoveryLabel, c.noticeRecovery]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
+    const fullFinalDetails = c.isFullFinal ? `${detail("LAST WORKING DATE", displayDate(c.lastWorkingDate))}${detail("NOTICE RECOVERY", `${c.noticeRecoveryDays} day${c.noticeRecoveryDays === 1 ? "" : "s"}`)}${c.fullFinalNote ? detail("F&F REFERENCE", c.fullFinalNote) : ""}` : "";
+    const balanceRecovery = c.noticeRecoveryBalance > 0 ? `<p class="note"><strong>Balance recoverable:</strong> ${money(c.noticeRecoveryBalance)}. This amount is not deducted from this payslip.</p>` : "";
+    $("payslipPreview").innerHTML = `<div class="slip-head"><div class="slip-brand">OMKAR RETAIL VENTURES</div><div class="statement-period">${c.isFullFinal ? "Full &amp; Final Settlement" : "Salary Statement"} for ${escape(c.period)}</div></div><div class="slip-person"><div class="employee-column">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", designation)}${detail("DAYS WORKED", `${c.paidDays} / ${c.cycleDays}`)}${c.doublePayDays ? detail("DOUBLE-PAY DAYS", c.doublePayDays) : ""}${fullFinalDetails}</div><div class="employee-column">${detail("PAN", employee.pan)}${statutoryDetails}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("DATE OF JOINING", displayDate(employee.doj))}</div></div><div class="slip-tables"><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>EARNINGS</span></div>${earnings}${total("GROSS EARNINGS", c.gross)}</div><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>DEDUCTIONS</span></div>${deductions}${total("TOTAL DEDUCTIONS", c.deductions)}</div></div><div class="net-pay"><span>NET PAY</span><strong>${money(c.net)}</strong></div><div class="round-off"><span>Round Off</span><strong>${signedMoney(c.roundOff)}</strong></div><div class="net-words">(${escape(amountInWords(c.net))})</div>${balanceRecovery}<p class="note">* This is a system-generated payslip and is confidential; therefore no signature is required.</p>`;
   }
 
   function buildMasterMap(shiftRows, masterRows) {
@@ -388,7 +436,10 @@
         const pt = 0;
         const baseDeductions = pf + esi;
         const locations = [...new Set(dayEntries.flatMap(([, entry]) => entry.locations))];
-        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, pfWages: pfBasic, esi, pt, salaryCycleMonth: monthNumber, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`) };
+        const monthlyGross = structure.basic + structure.hra + structure.special + structure.conveyance;
+        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleStart, cycleEnd, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, pfWages: pfBasic, esi, pt, salaryCycleMonth: monthNumber, monthlyGross, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`), sourceStructure: structure, sourceDayEntries: dayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), doublePayDateKeys: [...doublePayDates] };
+        const savedFullFinal = fullFinalByEmployee.get(employee.id);
+        if (savedFullFinal?.lastWorkingDate) recalculateEarnedAmounts(calculation, savedFullFinal.lastWorkingDate);
         updateArrearsForCalculation(calculation);
         results.push(calculation);
       });
@@ -452,8 +503,38 @@
     status(`Salary advance deduction removed for ${calc.employee.name}.`, "success");
   }
 
+  function applyFullFinal() {
+    const employeeId = text($("fullFinalEmployee").value);
+    const calc = data.calculations.find((item) => item.employee.id === employeeId);
+    const lastWorkingDate = text($("lastWorkingDate").value);
+    const noticeRecoveryDays = Number($("noticeRecoveryDays").value);
+    const note = text($("fullFinalNote").value);
+    if (!calc) return status("Generate the employee payslip before applying Full & Final settlement.", "error");
+    if (!lastWorkingDate) return status("Enter the employee's last working date.", "error");
+    if (!Number.isFinite(noticeRecoveryDays) || noticeRecoveryDays < 0 || noticeRecoveryDays > 31) return status("Enter notice recovery days from 0 to 31.", "error");
+    if (lastWorkingDate < calc.cycleStart || lastWorkingDate > calc.cycleEnd) return status("Choose the final unpaid salary cycle that contains the last working date.", "error");
+    fullFinalByEmployee.set(employeeId, { lastWorkingDate, noticeRecoveryDays, note });
+    recalculateEarnedAmounts(calc, lastWorkingDate);
+    updateArrearsForCalculation(calc);
+    renderSlip(calc); renderList(); loadArrearsForm(employeeId);
+    const requested = (calc.monthlyGross / 30) * noticeRecoveryDays;
+    status(`Full & Final applied for ${calc.employee.name}. Notice recovery requested: ${money(requested)}; deducted from this payslip: ${money(calc.noticeRecovery)}.`, "success");
+  }
+
+  function clearFullFinal() {
+    const employeeId = text($("fullFinalEmployee").value);
+    const calc = data.calculations.find((item) => item.employee.id === employeeId);
+    if (!calc) return status("Generate the employee payslip before removing Full & Final settlement.", "error");
+    fullFinalByEmployee.delete(employeeId);
+    recalculateEarnedAmounts(calc);
+    updateArrearsForCalculation(calc);
+    renderSlip(calc); renderList(); loadArrearsForm(employeeId);
+    status(`Full & Final settlement removed for ${calc.employee.name}.`, "success");
+  }
+
   ["attendanceFile", "masterFile", "structureFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
   $("arrearsEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("salaryAdvanceEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
-  $("cycleMonth").value = new Date().toISOString().slice(0, 7); $("generateButton").addEventListener("click", calculate); $("applyArrearsButton").addEventListener("click", applyArrears); $("clearArrearsButton").addEventListener("click", clearArrears); $("applySalaryAdvanceButton").addEventListener("click", applySalaryAdvance); $("clearSalaryAdvanceButton").addEventListener("click", clearSalaryAdvance); $("downloadEcrButton").addEventListener("click", downloadEcr); $("saveToDriveButton").addEventListener("click", saveAllPayslipsToDrive); $("emailPayslipButton").addEventListener("click", () => deliverPayslip("email")); $("printButton").addEventListener("click", () => window.print());
+  $("fullFinalEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
+  $("cycleMonth").value = new Date().toISOString().slice(0, 7); $("generateButton").addEventListener("click", calculate); $("applyArrearsButton").addEventListener("click", applyArrears); $("clearArrearsButton").addEventListener("click", clearArrears); $("applySalaryAdvanceButton").addEventListener("click", applySalaryAdvance); $("clearSalaryAdvanceButton").addEventListener("click", clearSalaryAdvance); $("applyFullFinalButton").addEventListener("click", applyFullFinal); $("clearFullFinalButton").addEventListener("click", clearFullFinal); $("downloadEcrButton").addEventListener("click", downloadEcr); $("saveToDriveButton").addEventListener("click", saveAllPayslipsToDrive); $("emailPayslipButton").addEventListener("click", () => deliverPayslip("email")); $("printButton").addEventListener("click", () => window.print());
 })();

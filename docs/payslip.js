@@ -1,9 +1,10 @@
 (function () {
   const dayValues = { P: 1, WO: 1, "A-R": 1, "F-R": 1, HD: 0.5, "HD-R": 0.5, A: 0, F: 0, L: 0, PENDING: 0 };
-  const files = { attendance: null, master: null, structure: null, salaryAdvance: null, fullFinalAttendance: null };
+  const files = { attendance: null, master: null, structure: null, salaryAdvance: null, incentive: null, fullFinalAttendance: null };
   const data = { calculations: [], activeCalculation: null };
   const arrearsByEmployee = new Map();
   const salaryAdvanceByEmployee = new Map();
+  const incentiveByEmployee = new Map();
   const fullFinalByEmployee = new Map();
   const $ = (id) => document.getElementById(id);
   const normal = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -70,6 +71,46 @@
       entries.push({ employeeId, amount, date, dateLabel: date ? displayDate(date) : sourceDate, reason });
     });
     return { entries, skipped };
+  }
+
+  function incentiveRows(book) {
+    const amountFor = (value) => Number(text(value).replace(/,/g, ""));
+    const entries = []; const skipped = [];
+    for (const sheetName of book.SheetNames) {
+      const rows = XLSX.utils.sheet_to_json(book.Sheets[sheetName], { header: 1, defval: "", raw: true });
+      for (let headerRow = 0; headerRow < Math.min(rows.length, 15); headerRow += 1) {
+        const headers = (rows[headerRow] || []).map(normal);
+        const amountColumns = headers.map((header, index) => header === "incentiveamount" || header === "amount" ? index : -1).filter((index) => index >= 0);
+        if (!amountColumns.length) continue;
+        const employeeIdColumn = headers.findIndex((header) => ["employeeid", "employeecode", "zid"].includes(header));
+        const nameColumn = headers.findIndex((header) => ["name", "employeename"].includes(header));
+        const typeColumn = headers.findIndex((header) => ["type", "incentivetype", "category"].includes(header));
+        const standardLayout = employeeIdColumn >= 0 || nameColumn >= 0;
+        const columns = standardLayout ? amountColumns.map((amountColumn) => ({ amountColumn, employeeIdColumn, nameColumn, typeColumn, category: "" })) : amountColumns.map((amountColumn) => {
+          const personColumn = amountColumn - 1;
+          let category = "";
+          for (let row = headerRow - 1; row >= 0; row -= 1) {
+            const label = text(rows[row]?.[personColumn] || rows[row]?.[amountColumn]);
+            if (label) { category = label; break; }
+          }
+          return { amountColumn, employeeIdColumn: -1, nameColumn: personColumn, typeColumn: -1, category };
+        });
+        rows.slice(headerRow + 1).forEach((row, index) => columns.forEach((column) => {
+          const employeeId = column.employeeIdColumn >= 0 ? text(row[column.employeeIdColumn]) : "";
+          const name = column.nameColumn >= 0 ? text(row[column.nameColumn]) : "";
+          const rawAmount = row[column.amountColumn];
+          const amount = amountFor(rawAmount);
+          if (!employeeId && !name && !text(rawAmount)) return;
+          if (!Number.isFinite(amount) || amount <= 0 || (!employeeId && !name)) {
+            skipped.push(`${sheetName} row ${headerRow + index + 2}`);
+            return;
+          }
+          entries.push({ employeeId, name, amount, category: text(column.typeColumn >= 0 ? row[column.typeColumn] : column.category) });
+        }));
+        return { entries, skipped };
+      }
+    }
+    throw new Error("The incentive sheet must contain an Incentive Amount column with an Employee ID or Name column, or use the shared Inbound / Outbound / Outbound PT layout.");
   }
 
   function structureMap(book) {
@@ -236,7 +277,11 @@
     calc.salaryAdvance = Number.isFinite(salaryAdvance) && salaryAdvance > 0 ? salaryAdvance : 0;
     calc.salaryAdvanceReason = text(savedSalaryAdvance?.reason);
     calc.salaryAdvanceEntries = Array.isArray(savedSalaryAdvance?.entries) ? savedSalaryAdvance.entries : (calc.salaryAdvance ? [{ amount: calc.salaryAdvance, reason: calc.salaryAdvanceReason, date: "" }] : []);
-    calc.gross = calc.baseGross + calc.arrearsEarning;
+    const savedIncentive = incentiveByEmployee.get(calc.employee.id);
+    const incentive = Number(savedIncentive?.amount || 0);
+    calc.incentive = Number.isFinite(incentive) && incentive > 0 ? incentive : 0;
+    calc.incentiveEntries = Array.isArray(savedIncentive?.entries) ? savedIncentive.entries : (calc.incentive ? [{ amount: calc.incentive, category: "" }] : []);
+    calc.gross = calc.baseGross + calc.arrearsEarning + calc.incentive;
     // Professional Tax follows the actual Gross Earnings shown on this payslip.
     // It is a fixed Rs. 200 in every month, except Rs. 300 for February.
     calc.pt = calc.gross > 25000 ? (calc.salaryCycleMonth === 2 ? 300 : 200) : 0;
@@ -303,7 +348,8 @@
     const recoveryLabel = `Arrears Recovery${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
     const salaryAdvanceLabel = `Salary Advance${c.salaryAdvanceReason && c.salaryAdvanceReason !== "Salary advance recovery" ? ` – ${escape(c.salaryAdvanceReason)}` : ""}`;
     const noticeRecoveryLabel = `Notice Period Recovery – ${c.noticeRecoveryDays} Day${c.noticeRecoveryDays === 1 ? "" : "s"}`;
-    const earnings = [[c.directFixed ? "Stipend Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Double Pay", c.doublePay], [arrearsLabel, c.arrearsEarning], ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
+    const incentiveEarnings = c.incentiveEntries.length ? c.incentiveEntries.map((entry) => [`Incentive${entry.category ? ` – ${escape(entry.category)}` : ""}`, entry.amount]) : [["Incentive", c.incentive]];
+    const earnings = [[c.directFixed ? "Stipend Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Double Pay", c.doublePay], [arrearsLabel, c.arrearsEarning], ...incentiveEarnings, ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
     const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance], [noticeRecoveryLabel, c.noticeRecovery]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
     const fullFinalDetails = c.isFullFinal ? `${detail("LAST WORKING DATE", displayDate(c.lastWorkingDate))}${c.noticeSubmittedDate ? detail("NOTICE SUBMITTED", displayDate(c.noticeSubmittedDate)) : ""}${detail("NOTICE SERVED", `${c.noticeServedDays} of 15 days`)}${detail("NOTICE RECOVERY", `${c.noticeRecoveryDays} day${c.noticeRecoveryDays === 1 ? "" : "s"}`)}${c.fullFinalNote ? detail("F&F REFERENCE", c.fullFinalNote) : ""}` : "";
     const balanceRecovery = c.noticeRecoveryBalance > 0 ? `<p class="note"><strong>Balance recoverable:</strong> ${money(c.noticeRecoveryBalance)}. This amount is not deducted from this payslip.</p>` : "";
@@ -440,8 +486,8 @@
 
   function calculate() {
     if (!files.attendance || !files.master || !files.structure) return status("Please select all three Excel files first.", "error");
-    const inputBooks = [readFile(files.attendance), readFile(files.master), readFile(files.structure), files.salaryAdvance ? readFile(files.salaryAdvance) : Promise.resolve(null), files.fullFinalAttendance ? readFile(files.fullFinalAttendance) : Promise.resolve(null)];
-    Promise.all(inputBooks).then(([attendanceBook, masterBook, structureBook, salaryAdvanceBook, fullFinalAttendanceBook]) => {
+    const inputBooks = [readFile(files.attendance), readFile(files.master), readFile(files.structure), files.salaryAdvance ? readFile(files.salaryAdvance) : Promise.resolve(null), files.incentive ? readFile(files.incentive) : Promise.resolve(null), files.fullFinalAttendance ? readFile(files.fullFinalAttendance) : Promise.resolve(null)];
+    Promise.all(inputBooks).then(([attendanceBook, masterBook, structureBook, salaryAdvanceBook, incentiveBook, fullFinalAttendanceBook]) => {
       const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]);
       const fullFinalAttendance = fullFinalAttendanceBook ? workbookRows(fullFinalAttendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]) : [];
       const master = buildMasterMap(workbookRows(masterBook, "Employee_Shift", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]), workbookRows(masterBook, "Master", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]));
@@ -451,6 +497,13 @@
         const uploadedAdvances = salaryAdvanceRows(salaryAdvanceBook);
         skippedAdvanceRows = uploadedAdvances.skipped;
         uploadedAdvanceEntries = uploadedAdvances.entries;
+      }
+      let uploadedIncentiveEntries = [];
+      let skippedIncentiveRows = [];
+      if (incentiveBook) {
+        const uploadedIncentives = incentiveRows(incentiveBook);
+        skippedIncentiveRows = uploadedIncentives.skipped;
+        uploadedIncentiveEntries = uploadedIncentives.entries;
       }
       const filter = $("employeeFilter");
       if (!filter.dataset.loaded) { [...master.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((employee) => filter.insertAdjacentHTML("beforeend", `<option value="${escape(employee.id)}">${escape(employee.name)} (${escape(employee.id)})</option>`)); filter.dataset.loaded = "1"; }
@@ -467,6 +520,9 @@
       const extensionCycleStart = calendarDate(extensionStart); const extensionCycleEnd = calendarDate(extensionEnd);
       let uploadedAdvanceCount = 0;
       let unmatchedAdvanceCount = 0;
+      let uploadedIncentiveCount = 0;
+      let unmatchedIncentiveCount = 0;
+      const unmatchedIncentiveEmployees = [];
       if (salaryAdvanceBook) {
         salaryAdvanceByEmployee.clear();
         uploadedAdvanceEntries.forEach((advance) => {
@@ -482,6 +538,26 @@
           });
         });
         uploadedAdvanceCount = salaryAdvanceByEmployee.size;
+      }
+      if (incentiveBook) {
+        const employeesByName = new Map();
+        master.forEach((employee) => {
+          const key = normal(employee.name);
+          if (!key) return;
+          employeesByName.set(key, employeesByName.has(key) ? null : employee.id);
+        });
+        incentiveByEmployee.clear();
+        uploadedIncentiveEntries.forEach((incentive) => {
+          const employeeId = incentive.employeeId && master.has(incentive.employeeId) ? incentive.employeeId : employeesByName.get(normal(incentive.name));
+          if (!employeeId || !master.has(employeeId)) {
+            unmatchedIncentiveCount += 1;
+            unmatchedIncentiveEmployees.push(incentive.employeeId || incentive.name || "unknown employee");
+            return;
+          }
+          const existing = incentiveByEmployee.get(employeeId);
+          incentiveByEmployee.set(employeeId, { amount: (existing?.amount || 0) + incentive.amount, entries: [...(existing?.entries || []), incentive] });
+        });
+        uploadedIncentiveCount = incentiveByEmployee.size;
       }
       const outsideCycleDates = [...doublePayDates].filter((date) => date < cycleStart || date > cycleEnd);
       if (outsideCycleDates.length) return status(`Double-pay date${outsideCycleDates.length === 1 ? "" : "s"} must fall within this salary cycle: ${outsideCycleDates.join(", ")}.`, "error");
@@ -533,7 +609,8 @@
       const conflictNote = conflicts.length ? ` ${conflicts.length} employee${conflicts.length === 1 ? " has" : "s have"} conflicting attendance records and ${conflicts.length === 1 ? "was" : "were"} blocked for review: ${conflicts.join("; ")}.` : "";
       const doublePayNote = doublePayDates.size ? ` Double pay was added for employees marked P on: ${[...doublePayDates].map(displayDate).join(", ")}.` : "";
       const advanceNote = salaryAdvanceBook ? ` Salary advances applied for ${uploadedAdvanceCount} employee${uploadedAdvanceCount === 1 ? "" : "s"}. All uploaded advances are recovered in this selected salary cycle.${unmatchedAdvanceCount ? ` ${unmatchedAdvanceCount} advance record${unmatchedAdvanceCount === 1 ? "" : "s"} did not match an Employee ID in the master sheet.` : ""}${skippedAdvanceRows.length ? ` Rows ${skippedAdvanceRows.join(", ")} were skipped because the Employee ID or advance amount is missing/invalid.` : ""}` : "";
-      status(`${results.length} payslip${results.length === 1 ? "" : "s"} generated for the selected salary cycle.${doublePayNote}${advanceNote}${skipped}${conflictNote}`);
+      const incentiveNote = incentiveBook ? ` Incentives applied for ${uploadedIncentiveCount} employee${uploadedIncentiveCount === 1 ? "" : "s"}.${unmatchedIncentiveCount ? ` ${unmatchedIncentiveCount} incentive record${unmatchedIncentiveCount === 1 ? "" : "s"} could not be matched to the master sheet: ${[...new Set(unmatchedIncentiveEmployees)].join(", ")}. Add the Employee ID to the incentive sheet or correct the name.` : ""}${skippedIncentiveRows.length ? ` ${skippedIncentiveRows.join(", ")} ${skippedIncentiveRows.length === 1 ? "was" : "were"} skipped because the employee or incentive amount is missing/invalid.` : ""}` : "";
+      status(`${results.length} payslip${results.length === 1 ? "" : "s"} generated for the selected salary cycle.${doublePayNote}${advanceNote}${incentiveNote}${skipped}${conflictNote}`);
     }).catch((error) => status(`Unable to read the files: ${error.message}`, "error"));
   }
 
@@ -617,7 +694,7 @@
     status(`Full & Final settlement removed for ${calc.employee.name}.`, "success");
   }
 
-  ["attendanceFile", "masterFile", "structureFile", "salaryAdvanceFile", "fullFinalAttendanceFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
+  ["attendanceFile", "masterFile", "structureFile", "salaryAdvanceFile", "incentiveFile", "fullFinalAttendanceFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
   $("arrearsEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("salaryAdvanceEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("fullFinalEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });

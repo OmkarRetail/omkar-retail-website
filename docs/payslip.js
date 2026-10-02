@@ -1,6 +1,6 @@
 (function () {
   const dayValues = { P: 1, WO: 1, "A-R": 1, "F-R": 1, HD: 0.5, "HD-R": 0.5, A: 0, F: 0, L: 0, PENDING: 0 };
-  const files = { attendance: null, master: null, structure: null, salaryAdvance: null };
+  const files = { attendance: null, master: null, structure: null, salaryAdvance: null, fullFinalAttendance: null };
   const data = { calculations: [], activeCalculation: null };
   const arrearsByEmployee = new Map();
   const salaryAdvanceByEmployee = new Map();
@@ -20,6 +20,7 @@
   const displayDate = (value) => { const date = calendarDate(value); if (!date) return "Not available"; const [year, month, day] = date.split("-"); return `${day} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(month) - 1]} ${year}`; };
   const daysBetween = (start, end) => Math.round((end - start) / 86400000) + 1;
   const inclusiveCalendarDays = (startDate, endDate) => { const [startYear, startMonth, startDay] = startDate.split("-").map(Number); const [endYear, endMonth, endDay] = endDate.split("-").map(Number); return Math.round((Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay)) / 86400000) + 1; };
+  const isWorkedAttendanceStatus = (status) => ["P", "HD", "HD-R", "A-R", "F-R"].includes(text(status).toUpperCase());
   const parseDoublePayDates = (value) => {
     const enteredDates = text(value).split(/[;,\n]+/).map((item) => item.trim()).filter(Boolean);
     const invalid = []; const dates = [];
@@ -183,31 +184,45 @@
   const row = (label, value) => `<div class="slip-row"><span>${label}</span><strong>${money(value)}</strong></div>`;
   const total = (label, value) => `<div class="slip-total"><span>${label}</span><strong>${money(value)}</strong></div>`;
 
+  function detectedLastWorkingDate(calc) {
+    const postCycleWorked = (calc.sourceExtensionDayEntries || []).filter((entry) => isWorkedAttendanceStatus(entry.status));
+    const cycleWorked = (calc.sourceDayEntries || []).filter((entry) => isWorkedAttendanceStatus(entry.status));
+    const candidates = postCycleWorked.length ? postCycleWorked : cycleWorked;
+    return candidates.map((entry) => entry.date).sort().at(-1) || "";
+  }
+
   function recalculateEarnedAmounts(calc, lastWorkingDate = "") {
     const structure = calc.sourceStructure;
-    const entries = calc.sourceDayEntries.filter((entry) => !lastWorkingDate || entry.date <= lastWorkingDate);
-    const paidDays = entries.reduce((sum, entry) => sum + (dayValues[entry.status] ?? 0), 0);
-    const doublePayDays = entries.filter((entry) => calc.doublePayDateKeys.includes(entry.date) && entry.status === "P").length;
-    const factor = paidDays / calc.cycleDays;
-    const doublePayFactor = doublePayDays / calc.cycleDays;
+    const mainCycleDays = calc.baseCycleDays || calc.cycleDays;
+    const mainEntries = calc.sourceDayEntries.filter((entry) => !lastWorkingDate || entry.date <= lastWorkingDate);
+    const extensionEntries = lastWorkingDate ? (calc.sourceExtensionDayEntries || []).filter((entry) => entry.date <= lastWorkingDate) : [];
+    const mainPaidDays = mainEntries.reduce((sum, entry) => sum + (dayValues[entry.status] ?? 0), 0);
+    const extensionPaidDays = extensionEntries.reduce((sum, entry) => sum + (dayValues[entry.status] ?? 0), 0);
+    const doublePayDays = mainEntries.filter((entry) => calc.doublePayDateKeys.includes(entry.date) && entry.status === "P").length;
+    const mainFactor = mainPaidDays / mainCycleDays;
+    const extensionFactor = extensionEntries.length ? extensionPaidDays / calc.extensionCycleDays : 0;
+    const paidDays = mainPaidDays + extensionPaidDays;
     calc.paidDays = paidDays;
+    calc.cycleDays = mainCycleDays + (extensionEntries.length ? calc.extensionCycleDays : 0);
+    calc.period = lastWorkingDate ? `${displayDate(calc.cycleStart)} – ${displayDate(lastWorkingDate)}` : calc.basePeriod;
     calc.doublePayDays = doublePayDays;
-    calc.basic = structure.basic * factor;
-    calc.hra = structure.hra * factor;
-    calc.special = structure.special * factor;
-    calc.conveyance = structure.conveyance * factor;
-    calc.doublePay = calc.monthlyGross * doublePayFactor;
+    calc.basic = structure.basic * (mainFactor + extensionFactor);
+    calc.hra = structure.hra * (mainFactor + extensionFactor);
+    calc.special = structure.special * (mainFactor + extensionFactor);
+    calc.conveyance = structure.conveyance * (mainFactor + extensionFactor);
+    calc.doublePay = calc.monthlyGross * (doublePayDays / mainCycleDays);
     const isPartTime = /part[\s_-]*time/i.test(`${calc.employee.role} ${calc.employee.structure}`);
-    calc.bonus = !lastWorkingDate && paidDays === calc.cycleDays ? (isPartTime ? 250 : 500) : 0;
-    calc.pfWages = structure.basic * factor;
+    calc.bonus = !lastWorkingDate && mainPaidDays === mainCycleDays ? (isPartTime ? 250 : 500) : 0;
+    calc.pfWages = structure.basic * (mainFactor + extensionFactor);
     calc.pf = structure.hasPf ? calc.pfWages * 0.12 : 0;
     const fixedGross = calc.basic + calc.hra + calc.special + calc.conveyance + calc.doublePay;
     calc.esi = structure.hasEsi ? fixedGross * 0.0075 : 0;
     calc.baseGross = fixedGross + calc.bonus;
     calc.baseDeductions = calc.pf + calc.esi;
-    calc.statusSummary = [...new Set(entries.map((entry) => entry.status))].join(", ") || "No records";
-    calc.countedDates = entries.map((entry) => `${entry.date} (${entry.status})`);
-    calc.location = firstValue([...new Set(entries.flatMap((entry) => entry.locations))].join(", "), calc.employee.location);
+    const allEntries = [...mainEntries, ...extensionEntries];
+    calc.statusSummary = [...new Set(allEntries.map((entry) => entry.status))].join(", ") || "No records";
+    calc.countedDates = allEntries.map((entry) => `${entry.date} (${entry.status})`);
+    calc.location = firstValue([...new Set(allEntries.flatMap((entry) => entry.locations))].join(", "), calc.employee.location);
   }
 
   function updateArrearsForCalculation(calc, adjustment = arrearsByEmployee.get(calc.employee.id)) {
@@ -259,6 +274,7 @@
   function loadArrearsForm(employeeId) {
     const select = $("arrearsEmployee");
     if (!employeeId || ![...select.options].some((option) => option.value === employeeId)) return;
+    const calc = data.calculations.find((item) => item.employee.id === employeeId);
     select.value = employeeId;
     $("salaryAdvanceEmployee").value = employeeId;
     const adjustment = arrearsByEmployee.get(employeeId);
@@ -269,7 +285,7 @@
     $("salaryAdvanceReason").value = salaryAdvance?.reason || "";
     $("fullFinalEmployee").value = employeeId;
     const fullFinal = fullFinalByEmployee.get(employeeId);
-    $("lastWorkingDate").value = fullFinal?.lastWorkingDate || "";
+    $("detectedLastWorkingDate").textContent = displayDate(fullFinal?.lastWorkingDate || detectedLastWorkingDate(calc));
     $("noticeSubmittedDate").value = fullFinal?.noticeSubmittedDate || "";
     $("fullFinalNote").value = fullFinal?.note || "";
   }
@@ -424,10 +440,10 @@
 
   function calculate() {
     if (!files.attendance || !files.master || !files.structure) return status("Please select all three Excel files first.", "error");
-    const inputBooks = [readFile(files.attendance), readFile(files.master), readFile(files.structure)];
-    if (files.salaryAdvance) inputBooks.push(readFile(files.salaryAdvance));
-    Promise.all(inputBooks).then(([attendanceBook, masterBook, structureBook, salaryAdvanceBook]) => {
+    const inputBooks = [readFile(files.attendance), readFile(files.master), readFile(files.structure), files.salaryAdvance ? readFile(files.salaryAdvance) : Promise.resolve(null), files.fullFinalAttendance ? readFile(files.fullFinalAttendance) : Promise.resolve(null)];
+    Promise.all(inputBooks).then(([attendanceBook, masterBook, structureBook, salaryAdvanceBook, fullFinalAttendanceBook]) => {
       const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]);
+      const fullFinalAttendance = fullFinalAttendanceBook ? workbookRows(fullFinalAttendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]) : [];
       const master = buildMasterMap(workbookRows(masterBook, "Employee_Shift", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]), workbookRows(masterBook, "Master", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]));
       let uploadedAdvanceEntries = [];
       let skippedAdvanceRows = [];
@@ -441,12 +457,14 @@
       const structures = structureMap(structureBook); const month = $("cycleMonth").value;
       if (!month) return status("Choose the salary-cycle month (the cycle runs from the previous 21st to this month’s 20th).", "error");
       const [year, monthNumber] = month.split("-").map(Number); const start = new Date(year, monthNumber - 2, 21); const end = new Date(year, monthNumber - 1, 20); const cycleDays = daysBetween(start, end);
+      const extensionStart = new Date(year, monthNumber - 1, 21); const extensionEnd = new Date(year, monthNumber, 20); const extensionCycleDays = daysBetween(extensionStart, extensionEnd);
       const requested = filter.value;
       const doublePayInput = parseDoublePayDates($("doublePayDates").value);
       if (doublePayInput.invalid.length) return status("Enter double-pay dates in DD-MM-YYYY format, separated by commas.", "error");
       const doublePayDates = doublePayInput.dates;
-      const grouped = new Map();
+      const grouped = new Map(); const extensionGrouped = new Map();
       const cycleStart = calendarDate(start); const cycleEnd = calendarDate(end);
+      const extensionCycleStart = calendarDate(extensionStart); const extensionCycleEnd = calendarDate(extensionEnd);
       let uploadedAdvanceCount = 0;
       let unmatchedAdvanceCount = 0;
       if (salaryAdvanceBook) {
@@ -467,21 +485,25 @@
       }
       const outsideCycleDates = [...doublePayDates].filter((date) => date < cycleStart || date > cycleEnd);
       if (outsideCycleDates.length) return status(`Double-pay date${outsideCycleDates.length === 1 ? "" : "s"} must fall within this salary cycle: ${outsideCycleDates.join(", ")}.`, "error");
-      attendance.forEach((record) => {
+      const addAttendance = (records, target, startDate, endDate) => records.forEach((record) => {
         const dateKey = calendarDate(record.scheduleddate); const id = text(record.employeecode);
         const attendanceRole = text(record.currentrolename);
-        if (!dateKey || dateKey < cycleStart || dateKey > cycleEnd || !master.has(id) || normal(attendanceRole) === "flexcity" || !/^FR_/i.test(attendanceRole)) return;
-        if (!grouped.has(id)) grouped.set(id, new Map()); const dates = grouped.get(id);
+        if (!dateKey || dateKey < startDate || dateKey > endDate || !master.has(id) || normal(attendanceRole) === "flexcity" || !/^FR_/i.test(attendanceRole)) return;
+        if (!target.has(id)) target.set(id, new Map()); const dates = target.get(id);
         if (!dates.has(dateKey)) dates.set(dateKey, { statuses: [], locations: [] });
         const entry = dates.get(dateKey); entry.statuses.push(text(record.musterstatus).toUpperCase()); if (text(record.storename)) entry.locations.push(text(record.storename));
       });
+      addAttendance(attendance, grouped, cycleStart, cycleEnd);
+      if (fullFinalAttendanceBook) addAttendance(fullFinalAttendance, extensionGrouped, extensionCycleStart, extensionCycleEnd);
       const results = []; const missingStructures = new Set(); const conflicts = [];
       grouped.forEach((dates, id) => {
         if (requested && requested !== id) return;
         const employee = master.get(id); const structure = structures.get(normal(employee.structure));
         if (!structure) { missingStructures.add(employee.structure || "(blank)"); return; }
         const dayEntries = [...dates.entries()].sort(([a], [b]) => a.localeCompare(b)); const conflictingDates = dayEntries.filter(([, entry]) => new Set(entry.statuses).size > 1);
-        if (conflictingDates.length) { conflicts.push(`${employee.name} (${conflictingDates.map(([date]) => date).join(", ")})`); return; }
+        const extensionDates = extensionGrouped.get(id) || new Map();
+        const extensionDayEntries = [...extensionDates.entries()].sort(([a], [b]) => a.localeCompare(b)); const extensionConflicts = extensionDayEntries.filter(([, entry]) => new Set(entry.statuses).size > 1);
+        if (conflictingDates.length || extensionConflicts.length) { conflicts.push(`${employee.name} (${[...conflictingDates, ...extensionConflicts].map(([date]) => date).join(", ")})`); return; }
         const statuses = dayEntries.map(([, entry]) => entry.statuses[0]); const paidDays = statuses.reduce((sum, value) => sum + (dayValues[value] ?? 0), 0);
         const employeeDoublePayDays = dayEntries.filter(([date, entry]) => doublePayDates.has(date) && entry.statuses[0] === "P").length; const factor = paidDays / cycleDays; const doublePayFactor = employeeDoublePayDays / cycleDays;
         const basic = structure.basic * factor, hra = structure.hra * factor, special = structure.special * factor, conveyance = structure.conveyance * factor;
@@ -497,7 +519,8 @@
         const baseDeductions = pf + esi;
         const locations = [...new Set(dayEntries.flatMap(([, entry]) => entry.locations))];
         const monthlyGross = structure.basic + structure.hra + structure.special + structure.conveyance;
-        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`, cycleStart, cycleEnd, cycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, pfWages: pfBasic, esi, pt, salaryCycleMonth: monthNumber, monthlyGross, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`), sourceStructure: structure, sourceDayEntries: dayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), doublePayDateKeys: [...doublePayDates] };
+        const basePeriod = `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
+        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: basePeriod, basePeriod, cycleStart, cycleEnd, cycleDays, baseCycleDays: cycleDays, extensionCycleStart, extensionCycleEnd, extensionCycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, pfWages: pfBasic, esi, pt, salaryCycleMonth: monthNumber, monthlyGross, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`), sourceStructure: structure, sourceDayEntries: dayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), sourceExtensionDayEntries: extensionDayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), doublePayDateKeys: [...doublePayDates] };
         const savedFullFinal = fullFinalByEmployee.get(employee.id);
         if (savedFullFinal?.lastWorkingDate) recalculateEarnedAmounts(calculation, savedFullFinal.lastWorkingDate);
         updateArrearsForCalculation(calculation);
@@ -567,12 +590,11 @@
   function applyFullFinal() {
     const employeeId = text($("fullFinalEmployee").value);
     const calc = data.calculations.find((item) => item.employee.id === employeeId);
-    const lastWorkingDate = text($("lastWorkingDate").value);
+    const lastWorkingDate = calc ? detectedLastWorkingDate(calc) : "";
     const noticeSubmittedDate = text($("noticeSubmittedDate").value);
     const note = text($("fullFinalNote").value);
     if (!calc) return status("Generate the employee payslip before applying Full & Final settlement.", "error");
-    if (!lastWorkingDate) return status("Enter the employee's last working date.", "error");
-    if (lastWorkingDate < calc.cycleStart || lastWorkingDate > calc.cycleEnd) return status("Choose the final unpaid salary cycle that contains the last working date.", "error");
+    if (!lastWorkingDate) return status("No paid attendance record was found to determine the last working date.", "error");
     if (noticeSubmittedDate && noticeSubmittedDate > lastWorkingDate) return status("Notice submitted date cannot be after the last working date.", "error");
     const noticeServedDays = noticeSubmittedDate ? Math.max(0, inclusiveCalendarDays(noticeSubmittedDate, lastWorkingDate)) : 0;
     const noticeRecoveryDays = Math.max(0, 15 - Math.min(15, noticeServedDays));
@@ -581,7 +603,7 @@
     updateArrearsForCalculation(calc);
     renderSlip(calc); renderList(); loadArrearsForm(employeeId);
     const requested = (calc.monthlyGross / 30) * noticeRecoveryDays;
-    status(`Full & Final applied for ${calc.employee.name}. Notice served: ${noticeServedDays} of 15 calendar days; recovery: ${noticeRecoveryDays} day${noticeRecoveryDays === 1 ? "" : "s"}. Requested: ${money(requested)}; deducted from this payslip: ${money(calc.noticeRecovery)}.`, "success");
+    status(`Full & Final applied for ${calc.employee.name}. Last working date: ${displayDate(lastWorkingDate)}. Notice served: ${noticeServedDays} of 15 calendar days; recovery: ${noticeRecoveryDays} day${noticeRecoveryDays === 1 ? "" : "s"}. Requested: ${money(requested)}; deducted from this payslip: ${money(calc.noticeRecovery)}.`, "success");
   }
 
   function clearFullFinal() {
@@ -595,7 +617,7 @@
     status(`Full & Final settlement removed for ${calc.employee.name}.`, "success");
   }
 
-  ["attendanceFile", "masterFile", "structureFile", "salaryAdvanceFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
+  ["attendanceFile", "masterFile", "structureFile", "salaryAdvanceFile", "fullFinalAttendanceFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
   $("arrearsEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("salaryAdvanceEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("fullFinalEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });

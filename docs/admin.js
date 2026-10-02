@@ -475,7 +475,7 @@
   }
 
   function calculateIppResults(rows) {
-    const finalByEmployeeRole = new Map();
+    const choicesByEmployee = new Map();
 
     rows.forEach((row) => {
       const employeeCode = String(row.employeecode || "").trim();
@@ -495,25 +495,17 @@
         finalIpp,
         calculation: isIbAssociate ? "MTD IB IPP" : "MTD OB IPP"
       };
-      const key = `${employeeCode}::${roleKey}`;
-      const previous = finalByEmployeeRole.get(key);
-      if (!previous || candidate.scheduledDate > previous.scheduledDate ||
-          (candidate.scheduledDate === previous.scheduledDate && candidate.finalIpp > previous.finalIpp)) {
-        finalByEmployeeRole.set(key, candidate);
-      }
-    });
-
-    const byEmployee = new Map();
-    finalByEmployeeRole.forEach((candidate) => {
-      const choices = byEmployee.get(candidate.employeeCode) || [];
+      const choices = choicesByEmployee.get(employeeCode) || [];
       choices.push(candidate);
-      byEmployee.set(candidate.employeeCode, choices);
+      choicesByEmployee.set(employeeCode, choices);
     });
 
-    return [...byEmployee.values()].map((choices) => {
-      choices.sort((a, b) => b.finalIpp - a.finalIpp || b.scheduledDate.localeCompare(a.scheduledDate) || a.role.localeCompare(b.role));
-      const selected = choices[0];
-      return { ...selected, multipleEligibleRoles: choices.length > 1 };
+    return [...choicesByEmployee.values()].map((choices) => {
+      const lastWorkingDate = choices.reduce((latest, candidate) => candidate.scheduledDate > latest ? candidate.scheduledDate : latest, "");
+      const lastDayChoices = choices.filter((candidate) => candidate.scheduledDate === lastWorkingDate);
+      lastDayChoices.sort((a, b) => b.finalIpp - a.finalIpp || a.role.localeCompare(b.role));
+      const selected = lastDayChoices[0];
+      return { ...selected, multipleEligibleRoles: lastDayChoices.length > 1 };
     }).sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.employeeCode.localeCompare(b.employeeCode));
   }
 
@@ -556,7 +548,7 @@
       ippResults = calculateIppResults(getMetricSheetRows(workbook));
       renderIppResults();
       if (!ippResults.length) throw new Error("No eligible employee rows were found in this report.");
-      showIppNote("IPP report created. For each employee, the last record for every eligible role was checked and the highest final MTD IPP was selected.", "success");
+      showIppNote("IPP report created. For each employee, the overall last working date was used. If more than one eligible role exists on that date, the highest IPP was selected.", "success");
     } catch (error) {
       console.error("IPP report generation failed", error);
       ippResults = [];

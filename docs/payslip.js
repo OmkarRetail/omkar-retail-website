@@ -325,7 +325,8 @@
     const fullFinalSelect = $("fullFinalEmployee");
     fullFinalSelect.innerHTML = select.innerHTML;
     $("arrearsControls").hidden = !calculations.length;
-    $("salaryAdvanceControls").hidden = !calculations.length;
+    // Salary advances are recovered only from the uploaded Salary Advance sheet.
+    $("salaryAdvanceControls").hidden = true;
     $("fullFinalControls").hidden = !calculations.length;
   }
 

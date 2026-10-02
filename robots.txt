@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://omkarretailventures.in/sitemap.xml
+

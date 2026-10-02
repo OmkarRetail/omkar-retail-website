@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnerAdmin() {
+      return signedIn()
+        && request.auth.token.email == "omkarretailventure@gmail.com";
+    }
+
+    function isReportAdmin() {
+      return isOwnerAdmin() || (signedIn()
+        && request.auth.token.email == "koushikventureofficial@gmail.com");
+    }
+
+    function ownsProfile(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isDisabledEmployee(userId) {
+      return exists(/databases/$(database)/documents/disabledAccounts/$(userId));
+    }
+
+    match /employeeProfiles/{userId} {
+      // A new joiner has no profile document until the first submission.
+      // Permit that missing-document check so the onboarding form can open.
+      allow read: if isReportAdmin() || (ownsProfile(userId) && !isDisabledEmployee(userId)
+        && (!exists(/databases/$(database)/documents/employeeProfiles/$(userId)) || resource.data.status != "inactive"));
+      allow create: if ownsProfile(userId) && !isDisabledEmployee(userId)
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.status == "pending"
+        && request.resource.data.employeeId == ""
+        && !request.resource.data.keys().hasAny(["assignedRole", "assignedShift"]);
+      allow update: if isOwnerAdmin() || (
+        ownsProfile(userId)
+        && !isDisabledEmployee(userId)
+        && resource.data.status != "inactive"
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.employeeId == resource.data.employeeId
+        && request.resource.data.approvedBy == resource.data.approvedBy
+        && request.resource.data.approvedAt == resource.data.approvedAt
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["assignedRole", "assignedShift"])
+      );
+      allow delete: if isOwnerAdmin();
+    }
+
+    // Contains no employee personal data. It blocks an inactive account only
+    // during its 90-day retention period, then the owner dashboard removes it.
+    match /disabledAccounts/{userId} {
+      allow read: if isReportAdmin() || ownsProfile(userId);
+      allow create: if isOwnerAdmin() && request.resource.data.uid == userId;
+      allow update, delete: if isOwnerAdmin();
+    }
+
+    // Public forms can create submissions, but only admins can view them.
+    match /applications/{docId} {
+      allow create: if true;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
+    }
+
+    match /employerLeads/{docId} {
+      allow create: if true;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
+    }
+
+    match /contacts/{docId} {
+      allow create: if true;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
+    }
+
+    match /supports/{docId} {
+      allow create: if true;
+      allow read: if isReportAdmin();
+      allow update, delete: if isOwnerAdmin();
+    }
+  }
+}

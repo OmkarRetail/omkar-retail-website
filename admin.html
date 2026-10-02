@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign in | OMKAR RETAIL VENTURES</title>
+    <meta name="description" content="Sign in to access applications, Zepto hiring enquiries, and support requests." />
+    <meta name="robots" content="noindex,nofollow" />
+    <link rel="canonical" href="https://omkarretailventures.in/admin.html" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css?v=20260826-signed-in-layout" />
+  </head>
+  <body>
+    <div id="admin-signin-strip" class="top-strip">
+      <div class="container">
+        <span>Sign in</span>
+        <div class="top-links"><a href="index.html">Back to Website</a></div>
+      </div>
+    </div>
+
+    <header class="site-header admin-site-header">
+      <div class="container nav-wrap">
+        <a class="brand" href="index.html">
+          <span>OMKAR RETAIL VENTURES</span>
+        </a>
+        <div class="header-actions">
+          <button id="admin-logout" class="btn btn-outline header-logout" type="button" hidden>Logout</button>
+          <button class="nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Open navigation">Menu</button>
+        </div>
+      </div>
+      <nav class="site-nav" data-site-nav>
+        <div class="container">
+          <a href="index.html" data-nav-link>Home</a>
+          <a href="apply.html" data-nav-link>Careers</a>
+          <a href="contact.html" data-nav-link>Contact</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section id="admin-signin-hero" class="hero">
+        <div class="container">
+          <span class="badge reveal">Sign in</span>
+          <h1 class="reveal">Sign in to access the Omkar Retail Ventures dashboard.</h1>
+          <p class="reveal">Use your authorised sign-in details to view applications and support requests.</p>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top:8px;">
+        <div class="container">
+          <div class="form-shell reveal">
+            <h2 class="section-title">Login</h2>
+            <p class="section-lead">Sign in with your authorised email address and password to access the dashboard.</p>
+            <form id="admin-access-form" style="margin-top:14px;" class="form-grid two">
+              <div>
+                <label for="admin-email">Email address</label>
+                <input id="admin-email" type="email" placeholder="Enter email address" autocomplete="username" required />
+              </div>
+              <div>
+                <label for="admin-pin">Password</label>
+                <input id="admin-pin" type="password" placeholder="Enter password" autocomplete="current-password" required />
+              </div>
+              <div style="display:flex; align-items:flex-end; grid-column:1 / -1;">
+                <button class="btn btn-primary" type="submit">Login</button>
+                <button id="admin-reset-password" class="btn btn-outline" type="button" style="margin-left:10px;">Forgot Password?</button>
+              </div>
+            </form>
+            <p id="admin-access-note" class="note" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="admin-dashboard" hidden>
+        <div class="container">
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="margin:0 0 6px;">Payroll</h3>
+                <p style="margin:0; color:var(--muted);">Upload attendance, employee master, and salary structure files to generate verified payslips.</p>
+              </div>
+              <a class="btn btn-primary" href="payslip.html">Open Payslip Generator</a>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="margin:0 0 6px;">New Joiner Onboarding</h3>
+                <p style="margin:0; color:var(--muted);">Review submitted employee profiles, assign an employee ID, and activate the account.</p>
+              </div>
+              <button id="refresh-onboarding" class="btn btn-outline" type="button">Refresh</button>
+            </div>
+            <p id="onboarding-admin-note" class="note" aria-live="polite"></p>
+            <div class="form-switch" role="tablist" aria-label="Onboarding status filter" style="margin:14px 0 0;">
+              <button class="form-switch-button" type="button" data-onboarding-filter="pending" role="tab" aria-selected="false">Pending</button>
+              <button class="form-switch-button active" type="button" data-onboarding-filter="active" role="tab" aria-selected="true">Active</button>
+              <button class="form-switch-button" type="button" data-onboarding-filter="inactive" role="tab" aria-selected="false">Inactive</button>
+            </div>
+            <details id="onboarding-report-panel" style="margin-top:14px; padding:14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.62);">
+              <summary style="cursor:pointer; font-weight:800; color:var(--primary);">View or export employee report</summary>
+              <p style="margin:10px 0; color:var(--muted);">Choose the details and filters you need. Review the report on screen first, then export the same filtered report if required.</p>
+              <div class="form-grid two" style="margin-top:12px;">
+                <label>Search employee<input id="onboarding-report-search" type="search" placeholder="Name, Employee ID or mobile number" /></label>
+                <label>Status<select id="onboarding-report-status"><option value="">All statuses</option><option value="pending">Pending</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+                <label>Role<select id="onboarding-report-role"><option value="">All roles</option></select></label>
+                <label>Shift <small style="display:block; margin:3px 0 5px; color:var(--muted);">Select one or more shifts (Ctrl + click).</small><select id="onboarding-report-shift" multiple size="6"></select></label>
+                <label>Joining date from<input id="onboarding-report-join-from" type="date" /></label>
+                <label>Joining date to<input id="onboarding-report-join-to" type="date" /></label>
+              </div>
+              <div id="onboarding-report-fields" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;"></div>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:14px;">
+                <button id="show-onboarding-report" class="btn btn-outline" type="button">Show report</button>
+                <button id="download-onboarding-report" class="btn btn-primary" type="button">Export filtered report</button>
+                <span id="onboarding-report-count" style="color:var(--muted); font-weight:700;"></span>
+              </div>
+              <div class="table-wrap" style="margin-top:14px;">
+                <table>
+                  <thead><tr id="onboarding-report-preview-head"></tr></thead>
+                  <tbody id="onboarding-report-preview-body"></tbody>
+                </table>
+              </div>
+            </details>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Date of Joining</th>
+                    <th>Employee ID</th>
+                    <th>Role</th>
+                    <th>Shift</th>
+                    <th>Submitted</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="onboarding-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <h2 class="section-title" style="margin-bottom:0;">Data Overview</h2>
+            </div>
+            <p id="admin-source-mode" class="section-lead">Checking data source...</p>
+            <div style="margin-top:16px;">
+              <h3 style="margin:0 0 8px;">Google Workspace Links</h3>
+              <p style="margin:0 0 14px; color:var(--muted);">Use Google Sheet for live applications and Google Drive for uploaded resumes.</p>
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <a id="open-applications-sheet" class="btn btn-primary" href="#" target="_blank" rel="noopener">Open Applications Sheet</a>
+                <a id="open-resume-folder" class="btn btn-outline" href="#" target="_blank" rel="noopener">Open Resume Folder</a>
+              </div>
+            </div>
+            <div class="grid-4" style="margin-top:16px;">
+              <article class="card"><h3>Total Applications</h3><p id="kpi-applications">0</p></article>
+              <article class="card"><h3>Zepto Enquiries</h3><p id="kpi-employers">0</p></article>
+              <article class="card"><h3>Contact Messages</h3><p id="kpi-contacts">0</p></article>
+              <article class="card"><h3>Support Tickets</h3><p id="kpi-supports">0</p></article>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0;">Candidate Applications</h3>
+              <button id="export-applications" class="btn btn-outline" type="button">Export CSV</button>
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Role</th>
+                    <th>Location</th>
+                    <th>Submitted</th>
+                  </tr>
+                </thead>
+                <tbody id="applications-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0;">Zepto Enquiries</h3>
+              <button id="export-employers" class="btn btn-outline" type="button">Export CSV</button>
+            </div>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Contact Person</th>
+                    <th>Required</th>
+                    <th>Location</th>
+                    <th>Submitted</th>
+                  </tr>
+                </thead>
+                <tbody id="employers-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px;">
+            <article class="card reveal">
+              <h3 style="margin-bottom:12px;">Contact Messages</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody id="contacts-body"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="card reveal">
+              <h3 style="margin-bottom:12px;">Support Requests</h3>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Issue</th>
+                      <th>Priority</th>
+                      <th>Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody id="supports-body"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container copyright">&copy; <span class="current-year"></span> <span data-company-name>OMKAR RETAIL VENTURES</span></div>
+    </footer>
+
+    <script src="config.js"></script>
+    <script src="script.js?v=20260830-first-login-fix"></script>
+    <script src="admin.js?v=20260830-first-login-fix"></script>
+  </body>
+</html>
+
+
+
+

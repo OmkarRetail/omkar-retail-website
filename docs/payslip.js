@@ -74,17 +74,17 @@
   }
 
   function incentiveRows(book) {
-    const amountFor = (value) => Number(text(value).replace(/,/g, ""));
+    const amountFor = (value) => Number(text(value).replace(/[^0-9.-]/g, ""));
     const entries = []; const skipped = [];
     for (const sheetName of book.SheetNames) {
       const rows = XLSX.utils.sheet_to_json(book.Sheets[sheetName], { header: 1, defval: "", raw: true });
       for (let headerRow = 0; headerRow < Math.min(rows.length, 15); headerRow += 1) {
         const headers = (rows[headerRow] || []).map(normal);
-        const amountColumns = headers.map((header, index) => header === "incentiveamount" || header === "amount" ? index : -1).filter((index) => index >= 0);
+        const amountColumns = headers.map((header, index) => ["incentive", "incentiveamount", "amount"].includes(header) ? index : -1).filter((index) => index >= 0);
         if (!amountColumns.length) continue;
         const employeeIdColumn = headers.findIndex((header) => ["employeeid", "employeecode", "zid"].includes(header));
-        const nameColumn = headers.findIndex((header) => ["name", "employeename"].includes(header));
-        const typeColumn = headers.findIndex((header) => ["type", "incentivetype", "category"].includes(header));
+        const nameColumn = headers.findIndex((header) => ["name", "employee", "employeename"].includes(header));
+        const typeColumn = headers.findIndex((header) => ["group", "type", "incentivetype", "category"].includes(header));
         const standardLayout = employeeIdColumn >= 0 || nameColumn >= 0;
         const columns = standardLayout ? amountColumns.map((amountColumn) => ({ amountColumn, employeeIdColumn, nameColumn, typeColumn, category: "" })) : amountColumns.map((amountColumn) => {
           const personColumn = amountColumn - 1;
@@ -110,7 +110,7 @@
         return { entries, skipped };
       }
     }
-    throw new Error("The incentive sheet must contain an Incentive Amount column with an Employee ID or Name column, or use the shared Inbound / Outbound / Outbound PT layout.");
+    throw new Error("The incentive sheet must contain Incentive / Incentive Amount with Employee ID or Employee / Name columns, or use the shared Inbound / Outbound / Outbound PT layout.");
   }
 
   function structureMap(book) {

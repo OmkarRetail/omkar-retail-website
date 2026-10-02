@@ -100,7 +100,7 @@
                 <button id="download-ipp-report" class="btn btn-outline" type="button" disabled>Download IPP report</button>
               </div>
             </div>
-            <p style="margin:10px 0 0; color:var(--muted); font-size:.92rem;">FR_IB Associate uses MTD_IB_IPP. Other eligible roles use MTD_OB_IPP. CC Associate rows are excluded. If an employee has multiple eligible roles, the highest final role-level IPP is used.</p>
+            <p style="margin:10px 0 0; color:var(--muted); font-size:.92rem;">FR_IB Associate uses MTD_IB_IPP. Other eligible roles use MTD_OB_IPP. CC Associate rows are excluded. The employee's overall last working date is used; if multiple eligible roles exist on that same date, the highest IPP is used.</p>
             <p id="ipp-generator-note" class="note" aria-live="polite"></p>
             <p id="ipp-report-count" style="margin:0; color:var(--muted); font-weight:700;"></p>
             <div id="ipp-report-preview" class="table-wrap" style="margin-top:14px;" hidden>
@@ -277,7 +277,7 @@
     <script src="config.js"></script>
     <script src="script.js?v=20260830-first-login-fix"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="admin.js?v=20261002-ipp-generator"></script>
+    <script src="admin.js?v=20261002-ipp-last-working-day"></script>
   </body>
 </html>
 

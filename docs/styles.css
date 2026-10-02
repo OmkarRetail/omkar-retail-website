@@ -1858,6 +1858,35 @@ body::after {
   background: linear-gradient(135deg, #1f2f80, #a33171);
 }
 
+/* Keep the signed-in Logout action visible at the right edge of the header. */
+.header-logout {
+  white-space: nowrap;
+}
+
+.header-logout[hidden] {
+  display: none !important;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-signed-in #admin-dashboard {
+  padding-top: 26px;
+}
+
+@media (min-width: 980px) {
+  .site-header .onboarding-nav {
+    right: calc(max(4vw, (100vw - 1140px) / 2) + 104px);
+  }
+
+  .site-header.admin-site-header .site-nav {
+    right: calc(max(4vw, (100vw - 1140px) / 2) + 104px);
+  }
+}
+
 .home-page .hero-signals {
   position: relative;
   z-index: 1;

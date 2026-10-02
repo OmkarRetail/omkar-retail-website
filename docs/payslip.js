@@ -256,6 +256,8 @@
     calc.bonus = !lastWorkingDate && mainPaidDays === mainCycleDays ? (isPartTime ? 250 : 500) : 0;
     calc.pfWages = structure.basic * (mainFactor + extensionFactor);
     calc.pf = structure.hasPf ? calc.pfWages * 0.12 : 0;
+    calc.basePfWages = calc.pfWages;
+    calc.basePf = calc.pf;
     const fixedGross = calc.basic + calc.hra + calc.special + calc.conveyance + calc.doublePay;
     calc.esi = structure.hasEsi ? fixedGross * 0.0075 : 0;
     calc.baseGross = fixedGross + calc.bonus;
@@ -269,9 +271,19 @@
   function updateArrearsForCalculation(calc, adjustment = arrearsByEmployee.get(calc.employee.id)) {
     const amount = Number(adjustment?.amount || 0);
     calc.arrears = Number.isFinite(amount) ? amount : 0;
-    calc.arrearsReason = text(adjustment?.reason);
+    calc.arrearsDays = Number(adjustment?.days || 0);
     calc.arrearsEarning = Math.max(calc.arrears, 0);
-    calc.arrearsRecovery = Math.max(-calc.arrears, 0);
+    calc.arrearsRecovery = 0;
+    const arrearsCycleDays = Number(calc.baseCycleDays || calc.cycleDays || 0);
+    const basePf = Number(calc.basePf ?? calc.pf ?? 0);
+    const basePfWages = Number(calc.basePfWages ?? calc.pfWages ?? 0);
+    // Arrears are paid on gross, but PF applies only to their Basic-salary portion.
+    calc.arrearsPfWages = calc.sourceStructure?.hasPf && arrearsCycleDays > 0
+      ? (Number(calc.sourceStructure.basic || 0) / arrearsCycleDays) * Math.max(0, calc.arrearsDays)
+      : 0;
+    calc.arrearsPf = calc.arrearsPfWages * 0.12;
+    calc.pfWages = basePfWages + calc.arrearsPfWages;
+    calc.pf = basePf + calc.arrearsPf;
     const savedSalaryAdvance = salaryAdvanceByEmployee.get(calc.employee.id);
     const salaryAdvance = Number(savedSalaryAdvance?.amount || 0);
     calc.salaryAdvance = Number.isFinite(salaryAdvance) && salaryAdvance > 0 ? salaryAdvance : 0;
@@ -282,9 +294,10 @@
     calc.incentive = Number.isFinite(incentive) && incentive > 0 ? incentive : 0;
     calc.incentiveEntries = Array.isArray(savedIncentive?.entries) ? savedIncentive.entries : (calc.incentive ? [{ amount: calc.incentive, category: "" }] : []);
     calc.gross = calc.baseGross + calc.arrearsEarning + calc.incentive;
-    // Professional Tax follows the actual Gross Earnings shown on this payslip.
-    // It is a fixed Rs. 200 in every month, except Rs. 300 for February.
-    calc.pt = calc.gross > 25000 ? (calc.salaryCycleMonth === 2 ? 300 : 200) : 0;
+    // Arrears affect PF on their Basic portion only.
+    // Professional Tax uses ordinary earnings plus incentive only.
+    const deductionEligibleGross = calc.baseGross + calc.incentive;
+    calc.pt = deductionEligibleGross > 25000 ? (calc.salaryCycleMonth === 2 ? 300 : 200) : 0;
     calc.baseDeductions = calc.pf + calc.esi + calc.pt;
     const fullFinal = fullFinalByEmployee.get(calc.employee.id);
     calc.lastWorkingDate = text(fullFinal?.lastWorkingDate);
@@ -294,10 +307,10 @@
     calc.fullFinalNote = text(fullFinal?.note);
     calc.isFullFinal = Boolean(fullFinal);
     const requestedNoticeRecovery = calc.noticeRecoveryDays > 0 ? (calc.monthlyGross / 30) * calc.noticeRecoveryDays : 0;
-    const payableBeforeNoticeRecovery = calc.gross - calc.baseDeductions - calc.arrearsRecovery - calc.salaryAdvance;
+    const payableBeforeNoticeRecovery = calc.gross - calc.baseDeductions - calc.salaryAdvance;
     calc.noticeRecovery = Math.min(requestedNoticeRecovery, Math.max(0, payableBeforeNoticeRecovery));
     calc.noticeRecoveryBalance = Math.max(0, requestedNoticeRecovery - calc.noticeRecovery);
-    calc.deductions = calc.baseDeductions + calc.arrearsRecovery + calc.salaryAdvance + calc.noticeRecovery;
+    calc.deductions = calc.baseDeductions + calc.salaryAdvance + calc.noticeRecovery;
     calc.netBeforeRoundOff = calc.gross - calc.deductions;
     calc.roundOff = Math.round(calc.netBeforeRoundOff) - calc.netBeforeRoundOff;
     if (Math.abs(calc.roundOff) < 0.005) calc.roundOff = 0;
@@ -323,8 +336,7 @@
     select.value = employeeId;
     $("salaryAdvanceEmployee").value = employeeId;
     const adjustment = arrearsByEmployee.get(employeeId);
-    $("arrearsAmount").value = adjustment?.amount || "";
-    $("arrearsReason").value = adjustment?.reason || "";
+    $("arrearsDays").value = adjustment?.days || "";
     const salaryAdvance = salaryAdvanceByEmployee.get(employeeId);
     $("salaryAdvanceAmount").value = salaryAdvance?.amount || "";
     $("salaryAdvanceReason").value = salaryAdvance?.reason || "";
@@ -344,13 +356,12 @@
     const validUan = /^\d{12}$/.test(text(employee.uan)) ? text(employee.uan) : "";
     const isStipend = c.directFixed || /sti(?:pend|fund)/i.test(text(employee.structure));
     const statutoryDetails = isStipend ? "" : detail("UAN", validUan, true);
-    const arrearsLabel = `Arrears${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
-    const recoveryLabel = `Arrears Recovery${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
+    const arrearsLabel = "Arrears";
     const salaryAdvanceLabel = `Salary Advance${c.salaryAdvanceReason && c.salaryAdvanceReason !== "Salary advance recovery" ? ` – ${escape(c.salaryAdvanceReason)}` : ""}`;
     const noticeRecoveryLabel = `Notice Period Recovery – ${c.noticeRecoveryDays} Day${c.noticeRecoveryDays === 1 ? "" : "s"}`;
     const incentiveEarnings = c.incentiveEntries.length ? c.incentiveEntries.map((entry) => [`Incentive${entry.category ? ` – ${escape(entry.category)}` : ""}`, entry.amount]) : [["Incentive", c.incentive]];
     const earnings = [[c.directFixed ? "Stipend Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Double Pay", c.doublePay], [arrearsLabel, c.arrearsEarning], ...incentiveEarnings, ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
-    const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance], [noticeRecoveryLabel, c.noticeRecovery]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
+    const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [salaryAdvanceLabel, c.salaryAdvance], [noticeRecoveryLabel, c.noticeRecovery]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
     const fullFinalDetails = c.isFullFinal ? `${detail("LAST WORKING DATE", displayDate(c.lastWorkingDate))}${c.noticeSubmittedDate ? detail("NOTICE SUBMITTED", displayDate(c.noticeSubmittedDate)) : ""}${detail("NOTICE SERVED", `${c.noticeServedDays} of 15 days`)}${detail("NOTICE RECOVERY", `${c.noticeRecoveryDays} day${c.noticeRecoveryDays === 1 ? "" : "s"}`)}${c.fullFinalNote ? detail("F&F REFERENCE", c.fullFinalNote) : ""}` : "";
     const balanceRecovery = c.noticeRecoveryBalance > 0 ? `<p class="note"><strong>Balance recoverable:</strong> ${money(c.noticeRecoveryBalance)}. This amount is not deducted from this payslip.</p>` : "";
     $("payslipPreview").innerHTML = `<div class="slip-head"><div class="slip-brand">OMKAR RETAIL VENTURES</div><div class="statement-period">${c.isFullFinal ? "Full &amp; Final Settlement" : "Salary Statement"} for ${escape(c.period)}</div></div><div class="slip-person"><div class="employee-column">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", designation)}${detail("DAYS WORKED", `${c.paidDays} / ${c.cycleDays}`)}${c.doublePayDays ? detail("DOUBLE-PAY DAYS", c.doublePayDays) : ""}${fullFinalDetails}</div><div class="employee-column">${detail("PAN", employee.pan)}${statutoryDetails}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("DATE OF JOINING", displayDate(employee.doj))}</div></div><div class="slip-tables"><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>EARNINGS</span></div>${earnings}${total("GROSS EARNINGS", c.gross)}</div><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>DEDUCTIONS</span></div>${deductions}${total("TOTAL DEDUCTIONS", c.deductions)}</div></div><div class="net-pay"><span>NET PAY</span><strong>${money(c.net)}</strong></div><div class="round-off"><span>Round Off</span><strong>${signedMoney(c.roundOff)}</strong></div><div class="net-words">(${escape(amountInWords(c.net))})</div>${balanceRecovery}<p class="note">* This is a system-generated payslip and is confidential; therefore no signature is required.</p>`;
@@ -596,7 +607,7 @@
         const locations = [...new Set(dayEntries.flatMap(([, entry]) => entry.locations))];
         const monthlyGross = structure.basic + structure.hra + structure.special + structure.conveyance;
         const basePeriod = `${start.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
-        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: basePeriod, basePeriod, cycleStart, cycleEnd, cycleDays, baseCycleDays: cycleDays, extensionCycleStart, extensionCycleEnd, extensionCycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, pfWages: pfBasic, esi, pt, salaryCycleMonth: monthNumber, monthlyGross, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`), sourceStructure: structure, sourceDayEntries: dayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), sourceExtensionDayEntries: extensionDayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), doublePayDateKeys: [...doublePayDates] };
+        const calculation = { employee, location: firstValue(locations.join(", "), employee.location), period: basePeriod, basePeriod, cycleStart, cycleEnd, cycleDays, baseCycleDays: cycleDays, extensionCycleStart, extensionCycleEnd, extensionCycleDays, paidDays, doublePayDays: employeeDoublePayDays, basic, hra, special, conveyance, doublePay, bonus, baseGross, baseDeductions, gross: baseGross, pf, basePf: pf, pfWages: pfBasic, basePfWages: pfBasic, esi, pt, salaryCycleMonth: monthNumber, monthlyGross, deductions: baseDeductions, net: baseGross - baseDeductions, directFixed: structure.directFixed, statusSummary: [...new Set(statuses)].join(", ") || "No records", countedDates: dayEntries.map(([date, entry]) => `${date} (${entry.statuses[0]})`), sourceStructure: structure, sourceDayEntries: dayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), sourceExtensionDayEntries: extensionDayEntries.map(([date, entry]) => ({ date, status: entry.statuses[0], locations: entry.locations })), doublePayDateKeys: [...doublePayDates] };
         const savedFullFinal = fullFinalByEmployee.get(employee.id);
         if (savedFullFinal?.lastWorkingDate) recalculateEarnedAmounts(calculation, savedFullFinal.lastWorkingDate);
         updateArrearsForCalculation(calculation);
@@ -616,17 +627,19 @@
 
   function applyArrears() {
     const employeeId = text($("arrearsEmployee").value);
-    const amountText = text($("arrearsAmount").value);
-    const amount = Number(amountText);
-    const reason = text($("arrearsReason").value);
+    const daysText = text($("arrearsDays").value);
+    const days = Number(daysText);
     const calc = data.calculations.find((item) => item.employee.id === employeeId);
     if (!calc) return status("Generate the employee payslip before applying arrears.", "error");
-    if (!amountText || !Number.isFinite(amount) || amount === 0) return status("Enter a non-zero arrears amount.", "error");
-    if (!reason) return status("Enter the reason for the arrears.", "error");
-    arrearsByEmployee.set(employeeId, { amount, reason });
+    if (!daysText || !Number.isFinite(days) || days <= 0) return status("Enter arrears days greater than zero.", "error");
+    const cycleDays = Number(calc.baseCycleDays || calc.cycleDays || 0);
+    if (!Number.isFinite(cycleDays) || cycleDays <= 0) return status("Unable to determine the salary-cycle days for arrears.", "error");
+    const amount = (Number(calc.monthlyGross || 0) / cycleDays) * days;
+    if (!Number.isFinite(amount) || amount <= 0) return status("Unable to calculate arrears from this employee's fixed gross salary.", "error");
+    arrearsByEmployee.set(employeeId, { days, amount });
     updateArrearsForCalculation(calc);
     renderSlip(calc); renderList(); loadArrearsForm(employeeId);
-    status(`${amount > 0 ? "Arrears" : "Arrears recovery"} of ${money(Math.abs(amount))} applied for ${calc.employee.name}.`, "success");
+    status(`Arrears of ${money(amount)} for ${days} day${days === 1 ? "" : "s"} applied for ${calc.employee.name}. PF was calculated only on the Basic portion of the arrears.`, "success");
   }
 
   function clearArrears() {

@@ -1,6 +1,6 @@
 (function () {
   const dayValues = { P: 1, WO: 1, "A-R": 1, "F-R": 1, HD: 0.5, "HD-R": 0.5, A: 0, F: 0, L: 0, PENDING: 0 };
-  const files = { attendance: null, master: null, structure: null };
+  const files = { attendance: null, master: null, structure: null, salaryAdvance: null };
   const data = { calculations: [], activeCalculation: null };
   const arrearsByEmployee = new Map();
   const salaryAdvanceByEmployee = new Map();
@@ -16,9 +16,10 @@
   const amountInWords = (value) => { const n = Math.round(Number(value || 0)); const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]; const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]; const underThousand = (number) => { const parts = []; if (number >= 100) { parts.push(`${ones[Math.floor(number / 100)]} Hundred`); number %= 100; } if (number >= 20) { parts.push(tens[Math.floor(number / 10)]); if (number % 10) parts.push(ones[number % 10]); } else if (number) parts.push(ones[number]); return parts.join(" "); }; if (!n) return "Rupees Zero Only"; const parts = []; let remaining = n; [[10000000, "Crore"], [100000, "Lakh"], [1000, "Thousand"]].forEach(([unit, label]) => { if (remaining >= unit) { parts.push(`${underThousand(Math.floor(remaining / unit))} ${label}`); remaining %= unit; } }); if (remaining) parts.push(underThousand(remaining)); return `Rupees ${parts.join(" ")} Only`; };
   const escape = (value) => text(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]);
   const status = (message, kind = "info") => { const el = $("status"); el.textContent = message; el.className = `status ${kind}`; };
-  const calendarDate = (value) => { if (typeof value === "number") { const parts = XLSX.SSF.parse_date_code(Math.floor(value)); return parts ? `${parts.y}-${String(parts.m).padStart(2, "0")}-${String(parts.d).padStart(2, "0")}` : ""; } if (value instanceof Date) return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`; const match = text(value).match(/^(\d{4}-\d{2}-\d{2})/); return match ? match[1] : ""; };
+  const calendarDate = (value) => { if (typeof value === "number") { const parts = XLSX.SSF.parse_date_code(Math.floor(value)); return parts ? `${parts.y}-${String(parts.m).padStart(2, "0")}-${String(parts.d).padStart(2, "0")}` : ""; } if (value instanceof Date) return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`; const iso = text(value).match(/^(\d{4}-\d{2}-\d{2})/); if (iso) return iso[1]; const slash = text(value).match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?:\s|$)/); if (!slash) return ""; const month = Number(slash[1]), day = Number(slash[2]), year = Number(slash[3]); const date = new Date(Date.UTC(year, month - 1, day)); return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` : ""; };
   const displayDate = (value) => { const date = calendarDate(value); if (!date) return "Not available"; const [year, month, day] = date.split("-"); return `${day} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(month) - 1]} ${year}`; };
   const daysBetween = (start, end) => Math.round((end - start) / 86400000) + 1;
+  const inclusiveCalendarDays = (startDate, endDate) => { const [startYear, startMonth, startDay] = startDate.split("-").map(Number); const [endYear, endMonth, endDay] = endDate.split("-").map(Number); return Math.round((Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay)) / 86400000) + 1; };
   const parseDoublePayDates = (value) => {
     const enteredDates = text(value).split(/[;,\n]+/).map((item) => item.trim()).filter(Boolean);
     const invalid = []; const dates = [];
@@ -49,6 +50,26 @@
   }
 
   async function readFile(file) { return XLSX.read(await file.arrayBuffer(), { type: "array", cellFormula: true, cellDates: false }); }
+
+  function salaryAdvanceRows(book) {
+    const rows = workbookRows(book, "Salary Advance", [["Employee ID", "Employee_code", "Z ID"], ["Salary Advance", "Advance Amount", "Amount"]]);
+    if (!rows.length) throw new Error("The salary advance sheet must contain Employee ID / Employee_code / Z ID and Salary Advance / Advance Amount / Amount columns.");
+    const entries = [];
+    const skipped = [];
+    rows.forEach((row, index) => {
+      const employeeId = text(firstValue(row.employeeid, row.employeecode, row.zid));
+      const amount = Number(text(firstValue(row.salaryadvance, row.advanceamount, row.amount)).replace(/,/g, ""));
+      const sourceDate = text(firstValue(row.date, row.advancedate, row.disbursementdate));
+      const date = calendarDate(sourceDate);
+      const reason = text(firstValue(row.reason, row.remarks, row.note, "Salary advance recovery"));
+      if (!employeeId || !Number.isFinite(amount) || amount <= 0) {
+        skipped.push(index + 2);
+        return;
+      }
+      entries.push({ employeeId, amount, date, dateLabel: date ? displayDate(date) : sourceDate, reason });
+    });
+    return { entries, skipped };
+  }
 
   function structureMap(book) {
     const map = new Map();
@@ -195,9 +216,11 @@
     calc.arrearsReason = text(adjustment?.reason);
     calc.arrearsEarning = Math.max(calc.arrears, 0);
     calc.arrearsRecovery = Math.max(-calc.arrears, 0);
-    const salaryAdvance = Number(salaryAdvanceByEmployee.get(calc.employee.id)?.amount || 0);
+    const savedSalaryAdvance = salaryAdvanceByEmployee.get(calc.employee.id);
+    const salaryAdvance = Number(savedSalaryAdvance?.amount || 0);
     calc.salaryAdvance = Number.isFinite(salaryAdvance) && salaryAdvance > 0 ? salaryAdvance : 0;
-    calc.salaryAdvanceReason = text(salaryAdvanceByEmployee.get(calc.employee.id)?.reason);
+    calc.salaryAdvanceReason = text(savedSalaryAdvance?.reason);
+    calc.salaryAdvanceEntries = Array.isArray(savedSalaryAdvance?.entries) ? savedSalaryAdvance.entries : (calc.salaryAdvance ? [{ amount: calc.salaryAdvance, reason: calc.salaryAdvanceReason, date: "" }] : []);
     calc.gross = calc.baseGross + calc.arrearsEarning;
     // Professional Tax follows the actual Gross Earnings shown on this payslip.
     // It is a fixed Rs. 200 in every month, except Rs. 300 for February.
@@ -205,6 +228,8 @@
     calc.baseDeductions = calc.pf + calc.esi + calc.pt;
     const fullFinal = fullFinalByEmployee.get(calc.employee.id);
     calc.lastWorkingDate = text(fullFinal?.lastWorkingDate);
+    calc.noticeSubmittedDate = text(fullFinal?.noticeSubmittedDate);
+    calc.noticeServedDays = Number(fullFinal?.noticeServedDays || 0);
     calc.noticeRecoveryDays = Number(fullFinal?.noticeRecoveryDays || 0);
     calc.fullFinalNote = text(fullFinal?.note);
     calc.isFullFinal = Boolean(fullFinal);
@@ -245,7 +270,7 @@
     $("fullFinalEmployee").value = employeeId;
     const fullFinal = fullFinalByEmployee.get(employeeId);
     $("lastWorkingDate").value = fullFinal?.lastWorkingDate || "";
-    $("noticeRecoveryDays").value = fullFinal?.noticeRecoveryDays ?? 15;
+    $("noticeSubmittedDate").value = fullFinal?.noticeSubmittedDate || "";
     $("fullFinalNote").value = fullFinal?.note || "";
   }
 
@@ -260,11 +285,11 @@
     const statutoryDetails = isStipend ? "" : detail("UAN", validUan, true);
     const arrearsLabel = `Arrears${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
     const recoveryLabel = `Arrears Recovery${c.arrearsReason ? ` – ${escape(c.arrearsReason)}` : ""}`;
-    const salaryAdvanceLabel = `Salary Advance${c.salaryAdvanceReason ? ` – ${escape(c.salaryAdvanceReason)}` : ""}`;
+    const salaryAdvanceLabel = `Salary Advance${c.salaryAdvanceReason && c.salaryAdvanceReason !== "Salary advance recovery" ? ` – ${escape(c.salaryAdvanceReason)}` : ""}`;
     const noticeRecoveryLabel = `Notice Period Recovery – ${c.noticeRecoveryDays} Day${c.noticeRecoveryDays === 1 ? "" : "s"}`;
     const earnings = [[c.directFixed ? "Stipend Pay" : "Basic Salary", c.basic], ["HRA", c.hra], ["Special Allowance", c.special], ["Conveyance Allowance", c.conveyance], ["Double Pay", c.doublePay], [arrearsLabel, c.arrearsEarning], ["Attendance Bonus", c.bonus]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
     const deductions = [["Provident Fund", c.pf], ["ESI", c.esi], ["Professional Tax", c.pt], [recoveryLabel, c.arrearsRecovery], [salaryAdvanceLabel, c.salaryAdvance], [noticeRecoveryLabel, c.noticeRecovery]].filter(([, value]) => value > 0).map(([label, value]) => row(label, value)).join("");
-    const fullFinalDetails = c.isFullFinal ? `${detail("LAST WORKING DATE", displayDate(c.lastWorkingDate))}${detail("NOTICE RECOVERY", `${c.noticeRecoveryDays} day${c.noticeRecoveryDays === 1 ? "" : "s"}`)}${c.fullFinalNote ? detail("F&F REFERENCE", c.fullFinalNote) : ""}` : "";
+    const fullFinalDetails = c.isFullFinal ? `${detail("LAST WORKING DATE", displayDate(c.lastWorkingDate))}${c.noticeSubmittedDate ? detail("NOTICE SUBMITTED", displayDate(c.noticeSubmittedDate)) : ""}${detail("NOTICE SERVED", `${c.noticeServedDays} of 15 days`)}${detail("NOTICE RECOVERY", `${c.noticeRecoveryDays} day${c.noticeRecoveryDays === 1 ? "" : "s"}`)}${c.fullFinalNote ? detail("F&F REFERENCE", c.fullFinalNote) : ""}` : "";
     const balanceRecovery = c.noticeRecoveryBalance > 0 ? `<p class="note"><strong>Balance recoverable:</strong> ${money(c.noticeRecoveryBalance)}. This amount is not deducted from this payslip.</p>` : "";
     $("payslipPreview").innerHTML = `<div class="slip-head"><div class="slip-brand">OMKAR RETAIL VENTURES</div><div class="statement-period">${c.isFullFinal ? "Full &amp; Final Settlement" : "Salary Statement"} for ${escape(c.period)}</div></div><div class="slip-person"><div class="employee-column">${detail("EMPLOYEE NAME", employee.name)}${detail("EMPLOYEE ID", employee.id)}${detail("LOCATION", c.location)}${detail("DESIGNATION", designation)}${detail("DAYS WORKED", `${c.paidDays} / ${c.cycleDays}`)}${c.doublePayDays ? detail("DOUBLE-PAY DAYS", c.doublePayDays) : ""}${fullFinalDetails}</div><div class="employee-column">${detail("PAN", employee.pan)}${statutoryDetails}${detail("BANK NAME", employee.bank)}${detail("BANK ACCOUNT NUMBER", employee.accountNumber)}${detail("DATE OF JOINING", displayDate(employee.doj))}</div></div><div class="slip-tables"><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>EARNINGS</span></div>${earnings}${total("GROSS EARNINGS", c.gross)}</div><div class="pay-table"><div class="table-heading"><span>PARTICULARS</span><span>DEDUCTIONS</span></div>${deductions}${total("TOTAL DEDUCTIONS", c.deductions)}</div></div><div class="net-pay"><span>NET PAY</span><strong>${money(c.net)}</strong></div><div class="round-off"><span>Round Off</span><strong>${signedMoney(c.roundOff)}</strong></div><div class="net-words">(${escape(amountInWords(c.net))})</div>${balanceRecovery}<p class="note">* This is a system-generated payslip and is confidential; therefore no signature is required.</p>`;
   }
@@ -399,9 +424,18 @@
 
   function calculate() {
     if (!files.attendance || !files.master || !files.structure) return status("Please select all three Excel files first.", "error");
-    Promise.all([readFile(files.attendance), readFile(files.master), readFile(files.structure)]).then(([attendanceBook, masterBook, structureBook]) => {
+    const inputBooks = [readFile(files.attendance), readFile(files.master), readFile(files.structure)];
+    if (files.salaryAdvance) inputBooks.push(readFile(files.salaryAdvance));
+    Promise.all(inputBooks).then(([attendanceBook, masterBook, structureBook, salaryAdvanceBook]) => {
       const attendance = workbookRows(attendanceBook, "Attendance", ["employee_code", "scheduled_date", "current_role_name", "muster_status"]);
       const master = buildMasterMap(workbookRows(masterBook, "Employee_Shift", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]), workbookRows(masterBook, "Master", ["Name", ["Employee ID", "Z ID"], "Salary Structure"]));
+      let uploadedAdvanceEntries = [];
+      let skippedAdvanceRows = [];
+      if (salaryAdvanceBook) {
+        const uploadedAdvances = salaryAdvanceRows(salaryAdvanceBook);
+        skippedAdvanceRows = uploadedAdvances.skipped;
+        uploadedAdvanceEntries = uploadedAdvances.entries;
+      }
       const filter = $("employeeFilter");
       if (!filter.dataset.loaded) { [...master.values()].sort((a, b) => a.name.localeCompare(b.name)).forEach((employee) => filter.insertAdjacentHTML("beforeend", `<option value="${escape(employee.id)}">${escape(employee.name)} (${escape(employee.id)})</option>`)); filter.dataset.loaded = "1"; }
       const structures = structureMap(structureBook); const month = $("cycleMonth").value;
@@ -413,6 +447,24 @@
       const doublePayDates = doublePayInput.dates;
       const grouped = new Map();
       const cycleStart = calendarDate(start); const cycleEnd = calendarDate(end);
+      let uploadedAdvanceCount = 0;
+      let unmatchedAdvanceCount = 0;
+      if (salaryAdvanceBook) {
+        salaryAdvanceByEmployee.clear();
+        uploadedAdvanceEntries.forEach((advance) => {
+          if (!master.has(advance.employeeId)) {
+            unmatchedAdvanceCount += 1;
+            return;
+          }
+          const existing = salaryAdvanceByEmployee.get(advance.employeeId);
+          salaryAdvanceByEmployee.set(advance.employeeId, {
+            amount: (existing?.amount || 0) + advance.amount,
+            reason: "Salary advance recovery",
+            entries: [...(existing?.entries || []), advance]
+          });
+        });
+        uploadedAdvanceCount = salaryAdvanceByEmployee.size;
+      }
       const outsideCycleDates = [...doublePayDates].filter((date) => date < cycleStart || date > cycleEnd);
       if (outsideCycleDates.length) return status(`Double-pay date${outsideCycleDates.length === 1 ? "" : "s"} must fall within this salary cycle: ${outsideCycleDates.join(", ")}.`, "error");
       attendance.forEach((record) => {
@@ -457,7 +509,8 @@
       const skipped = missingStructures.size ? ` ${missingStructures.size} salary-structure reference${missingStructures.size === 1 ? " is" : "s are"} not present in the uploaded salary workbook and were skipped: ${[...missingStructures].join(", ")}.` : "";
       const conflictNote = conflicts.length ? ` ${conflicts.length} employee${conflicts.length === 1 ? " has" : "s have"} conflicting attendance records and ${conflicts.length === 1 ? "was" : "were"} blocked for review: ${conflicts.join("; ")}.` : "";
       const doublePayNote = doublePayDates.size ? ` Double pay was added for employees marked P on: ${[...doublePayDates].map(displayDate).join(", ")}.` : "";
-      status(`${results.length} payslip${results.length === 1 ? "" : "s"} generated for the selected salary cycle.${doublePayNote}${skipped}${conflictNote}`);
+      const advanceNote = salaryAdvanceBook ? ` Salary advances applied for ${uploadedAdvanceCount} employee${uploadedAdvanceCount === 1 ? "" : "s"}. All uploaded advances are recovered in this selected salary cycle.${unmatchedAdvanceCount ? ` ${unmatchedAdvanceCount} advance record${unmatchedAdvanceCount === 1 ? "" : "s"} did not match an Employee ID in the master sheet.` : ""}${skippedAdvanceRows.length ? ` Rows ${skippedAdvanceRows.join(", ")} were skipped because the Employee ID or advance amount is missing/invalid.` : ""}` : "";
+      status(`${results.length} payslip${results.length === 1 ? "" : "s"} generated for the selected salary cycle.${doublePayNote}${advanceNote}${skipped}${conflictNote}`);
     }).catch((error) => status(`Unable to read the files: ${error.message}`, "error"));
   }
 
@@ -495,7 +548,7 @@
     if (!calc) return status("Generate the employee payslip before applying a salary advance deduction.", "error");
     if (!amountText || !Number.isFinite(amount) || amount <= 0) return status("Enter a salary advance amount greater than zero.", "error");
     if (!reason) return status("Enter the reason for the salary advance deduction.", "error");
-    salaryAdvanceByEmployee.set(employeeId, { amount, reason });
+    salaryAdvanceByEmployee.set(employeeId, { amount, reason, entries: [{ amount, reason, date: "" }] });
     updateArrearsForCalculation(calc);
     renderSlip(calc); renderList(); loadArrearsForm(employeeId);
     status(`Salary advance deduction of ${money(amount)} applied for ${calc.employee.name}.`, "success");
@@ -515,18 +568,20 @@
     const employeeId = text($("fullFinalEmployee").value);
     const calc = data.calculations.find((item) => item.employee.id === employeeId);
     const lastWorkingDate = text($("lastWorkingDate").value);
-    const noticeRecoveryDays = Number($("noticeRecoveryDays").value);
+    const noticeSubmittedDate = text($("noticeSubmittedDate").value);
     const note = text($("fullFinalNote").value);
     if (!calc) return status("Generate the employee payslip before applying Full & Final settlement.", "error");
     if (!lastWorkingDate) return status("Enter the employee's last working date.", "error");
-    if (!Number.isFinite(noticeRecoveryDays) || noticeRecoveryDays < 0 || noticeRecoveryDays > 31) return status("Enter notice recovery days from 0 to 31.", "error");
     if (lastWorkingDate < calc.cycleStart || lastWorkingDate > calc.cycleEnd) return status("Choose the final unpaid salary cycle that contains the last working date.", "error");
-    fullFinalByEmployee.set(employeeId, { lastWorkingDate, noticeRecoveryDays, note });
+    if (noticeSubmittedDate && noticeSubmittedDate > lastWorkingDate) return status("Notice submitted date cannot be after the last working date.", "error");
+    const noticeServedDays = noticeSubmittedDate ? Math.max(0, inclusiveCalendarDays(noticeSubmittedDate, lastWorkingDate)) : 0;
+    const noticeRecoveryDays = Math.max(0, 15 - Math.min(15, noticeServedDays));
+    fullFinalByEmployee.set(employeeId, { lastWorkingDate, noticeSubmittedDate, noticeServedDays, noticeRecoveryDays, note });
     recalculateEarnedAmounts(calc, lastWorkingDate);
     updateArrearsForCalculation(calc);
     renderSlip(calc); renderList(); loadArrearsForm(employeeId);
     const requested = (calc.monthlyGross / 30) * noticeRecoveryDays;
-    status(`Full & Final applied for ${calc.employee.name}. Notice recovery requested: ${money(requested)}; deducted from this payslip: ${money(calc.noticeRecovery)}.`, "success");
+    status(`Full & Final applied for ${calc.employee.name}. Notice served: ${noticeServedDays} of 15 calendar days; recovery: ${noticeRecoveryDays} day${noticeRecoveryDays === 1 ? "" : "s"}. Requested: ${money(requested)}; deducted from this payslip: ${money(calc.noticeRecovery)}.`, "success");
   }
 
   function clearFullFinal() {
@@ -540,7 +595,7 @@
     status(`Full & Final settlement removed for ${calc.employee.name}.`, "success");
   }
 
-  ["attendanceFile", "masterFile", "structureFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
+  ["attendanceFile", "masterFile", "structureFile", "salaryAdvanceFile"].forEach((id) => $(id).addEventListener("change", (event) => { files[id.replace("File", "")] = event.target.files[0] || null; }));
   $("arrearsEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("salaryAdvanceEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });
   $("fullFinalEmployee").addEventListener("change", (event) => { const calc = data.calculations.find((item) => item.employee.id === event.target.value); loadArrearsForm(event.target.value); if (calc) { renderSlip(calc); renderList(); } });

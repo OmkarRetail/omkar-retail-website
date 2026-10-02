@@ -85,6 +85,33 @@
           </div>
 
           <div class="card reveal" style="margin-top:16px;">
+            <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="margin:0 0 6px;">IPP Generator</h3>
+                <p style="margin:0; color:var(--muted);">Upload the Store Metric Summary report to calculate the final MTD IPP for each eligible employee.</p>
+              </div>
+            </div>
+            <div class="form-grid two" style="margin-top:14px; align-items:end;">
+              <label for="ipp-metric-file">Store Metric Summary report
+                <input id="ipp-metric-file" type="file" accept=".xlsx,.xls" />
+              </label>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                <button id="generate-ipp-report" class="btn btn-primary" type="button">Generate IPP report</button>
+                <button id="download-ipp-report" class="btn btn-outline" type="button" disabled>Download IPP report</button>
+              </div>
+            </div>
+            <p style="margin:10px 0 0; color:var(--muted); font-size:.92rem;">FR_IB Associate uses MTD_IB_IPP. Other eligible roles use MTD_OB_IPP. CC Associate rows are excluded. If an employee has multiple eligible roles, the highest final role-level IPP is used.</p>
+            <p id="ipp-generator-note" class="note" aria-live="polite"></p>
+            <p id="ipp-report-count" style="margin:0; color:var(--muted); font-weight:700;"></p>
+            <div id="ipp-report-preview" class="table-wrap" style="margin-top:14px;" hidden>
+              <table>
+                <thead><tr><th>Employee Code</th><th>Employee Name</th><th>Selected Role</th><th>Last Working Date</th><th>Final IPP</th></tr></thead>
+                <tbody id="ipp-report-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card reveal" style="margin-top:16px;">
             <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center;">
               <div>
                 <h3 style="margin:0 0 6px;">New Joiner Onboarding</h3>
@@ -249,7 +276,8 @@
 
     <script src="config.js"></script>
     <script src="script.js?v=20260830-first-login-fix"></script>
-    <script src="admin.js?v=20260830-first-login-fix"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="admin.js?v=20261002-ipp-generator"></script>
   </body>
 </html>
 

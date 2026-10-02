@@ -15,6 +15,7 @@
   let currentAdminRole = "";
   let currentOnboardingFilter = "active";
   let adminLoginInProgress = false;
+  let ippResults = [];
 
   const els = {
     accessForm: document.getElementById("admin-access-form"),
@@ -47,6 +48,13 @@
     onboardingReportCount: document.getElementById("onboarding-report-count"),
     onboardingReportPreviewHead: document.getElementById("onboarding-report-preview-head"),
     onboardingReportPreviewBody: document.getElementById("onboarding-report-preview-body"),
+    ippMetricFile: document.getElementById("ipp-metric-file"),
+    generateIppReport: document.getElementById("generate-ipp-report"),
+    downloadIppReport: document.getElementById("download-ipp-report"),
+    ippNote: document.getElementById("ipp-generator-note"),
+    ippCount: document.getElementById("ipp-report-count"),
+    ippPreview: document.getElementById("ipp-report-preview"),
+    ippBody: document.getElementById("ipp-report-body"),
     applicationsBody: document.getElementById("applications-body"),
     employerBody: document.getElementById("employers-body"),
     contactsBody: document.getElementById("contacts-body"),
@@ -144,6 +152,12 @@
     els.onboardingNote.className = `note ${type || ""}`.trim();
   }
 
+  function showIppNote(message, type) {
+    if (!els.ippNote) return;
+    els.ippNote.textContent = message || "";
+    els.ippNote.className = `note ${type || ""}`.trim();
+  }
+
   function getLoginErrorMessage(error) {
     switch (error?.code) {
       case "auth/operation-not-allowed":
@@ -228,7 +242,7 @@
   function toCsv(rows, headers, mapper) {
     const lines = [headers.join(",")];
     rows.forEach((row) => {
-      const values = mapper(row).map((v) => `"${String(v || "").replace(/"/g, '""')}"`);
+      const values = mapper(row).map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`);
       lines.push(values.join(","));
     });
     return lines.join("\n");
@@ -391,6 +405,178 @@
     link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function normaliseMetricHeader(value) {
+    return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function toMetricNumber(value) {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    const parsed = Number(String(value ?? "").replace(/,/g, "").trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function excelDateToIso(value) {
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+    }
+    if (typeof value === "number" && window.XLSX?.SSF) {
+      const parsed = window.XLSX.SSF.parse_date_code(value);
+      if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(parsed.d).padStart(2, "0")}`;
+    }
+    const text = String(value || "").trim();
+    const iso = text.match(/^(\d{4})[-/]?(\d{2})[-/]?(\d{2})/);
+    if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return "";
+    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+  }
+
+  function displayIppDate(value) {
+    if (!value) return "-";
+    const [year, month, day] = String(value).split("-");
+    return year && month && day ? `${day}-${month}-${year}` : String(value);
+  }
+
+  function formatIpp(value) {
+    const amount = toMetricNumber(value);
+    return amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+  }
+
+  function isCcAssociateRole(roleKey) {
+    return roleKey.includes("ccassociate") || roleKey === "frcc";
+  }
+
+  function getMetricSheetRows(workbook) {
+    const required = ["employeecode", "emplyoeerole", "scheduleddate", "mtdobipp", "mtdibipp"];
+    const fields = [...required, "empname"];
+    const sheetNames = [...workbook.SheetNames].sort((a, b) => {
+      const aPreferred = normaliseMetricHeader(a) === "packerthorraw" ? -1 : 0;
+      const bPreferred = normaliseMetricHeader(b) === "packerthorraw" ? -1 : 0;
+      return aPreferred - bPreferred;
+    });
+
+    for (const sheetName of sheetNames) {
+      const grid = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: "", raw: true });
+      for (let headerRow = 0; headerRow < Math.min(grid.length, 12); headerRow += 1) {
+        const headerMap = {};
+        grid[headerRow].forEach((cell, index) => {
+          const key = normaliseMetricHeader(cell);
+          if (key) headerMap[key] = index;
+        });
+        if (!required.every((key) => Number.isInteger(headerMap[key]))) continue;
+        return grid.slice(headerRow + 1)
+          .filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""))
+          .map((row) => Object.fromEntries(fields.map((key) => [key, row[headerMap[key]]])));
+      }
+    }
+    throw new Error("The report must contain Employee_code, Emplyoee_role, Scheduled_date, MTD_OB_IPP, and MTD_IB_IPP columns.");
+  }
+
+  function calculateIppResults(rows) {
+    const finalByEmployeeRole = new Map();
+
+    rows.forEach((row) => {
+      const employeeCode = String(row.employeecode || "").trim();
+      const role = String(row.emplyoeerole || "").trim();
+      const roleKey = normaliseMetricHeader(role);
+      const scheduledDate = excelDateToIso(row.scheduleddate);
+      if (!employeeCode || !role || !scheduledDate || isCcAssociateRole(roleKey)) return;
+
+      const isIbAssociate = roleKey === "fribassociate";
+      const finalIpp = toMetricNumber(isIbAssociate ? row.mtdibipp : row.mtdobipp);
+      const employeeName = String(row.empname || "").trim();
+      const candidate = {
+        employeeCode,
+        employeeName,
+        role,
+        scheduledDate,
+        finalIpp,
+        calculation: isIbAssociate ? "MTD IB IPP" : "MTD OB IPP"
+      };
+      const key = `${employeeCode}::${roleKey}`;
+      const previous = finalByEmployeeRole.get(key);
+      if (!previous || candidate.scheduledDate > previous.scheduledDate ||
+          (candidate.scheduledDate === previous.scheduledDate && candidate.finalIpp > previous.finalIpp)) {
+        finalByEmployeeRole.set(key, candidate);
+      }
+    });
+
+    const byEmployee = new Map();
+    finalByEmployeeRole.forEach((candidate) => {
+      const choices = byEmployee.get(candidate.employeeCode) || [];
+      choices.push(candidate);
+      byEmployee.set(candidate.employeeCode, choices);
+    });
+
+    return [...byEmployee.values()].map((choices) => {
+      choices.sort((a, b) => b.finalIpp - a.finalIpp || b.scheduledDate.localeCompare(a.scheduledDate) || a.role.localeCompare(b.role));
+      const selected = choices[0];
+      return { ...selected, multipleEligibleRoles: choices.length > 1 };
+    }).sort((a, b) => a.employeeName.localeCompare(b.employeeName) || a.employeeCode.localeCompare(b.employeeCode));
+  }
+
+  function renderIppResults() {
+    if (!els.ippBody || !els.ippPreview || !els.ippCount) return;
+    els.ippBody.innerHTML = "";
+    if (!ippResults.length) {
+      els.ippPreview.hidden = true;
+      els.ippCount.textContent = "";
+      if (els.downloadIppReport) els.downloadIppReport.disabled = true;
+      return;
+    }
+    ippResults.forEach((row) => {
+      els.ippBody.appendChild(createCellRow([
+        row.employeeCode,
+        row.employeeName,
+        row.role,
+        displayIppDate(row.scheduledDate),
+        formatIpp(row.finalIpp)
+      ]));
+    });
+    els.ippPreview.hidden = false;
+    els.ippCount.textContent = `${ippResults.length} eligible employee${ippResults.length === 1 ? "" : "s"} calculated. CC Associates are excluded.`;
+    if (els.downloadIppReport) els.downloadIppReport.disabled = false;
+  }
+
+  async function generateIppReport() {
+    const file = els.ippMetricFile?.files?.[0];
+    if (!file) {
+      showIppNote("Choose the Store Metric Summary Excel file first.", "error");
+      return;
+    }
+    if (!window.XLSX) {
+      showIppNote("The Excel reader did not load. Refresh the page and try again.", "error");
+      return;
+    }
+    try {
+      showIppNote("Reading the Store Metric Summary report...");
+      const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array", cellDates: true });
+      ippResults = calculateIppResults(getMetricSheetRows(workbook));
+      renderIppResults();
+      if (!ippResults.length) throw new Error("No eligible employee rows were found in this report.");
+      showIppNote("IPP report created. For each employee, the last record for every eligible role was checked and the highest final MTD IPP was selected.", "success");
+    } catch (error) {
+      console.error("IPP report generation failed", error);
+      ippResults = [];
+      renderIppResults();
+      showIppNote(error?.message || "Unable to read this Store Metric Summary report.", "error");
+    }
+  }
+
+  function downloadIppReport() {
+    if (!ippResults.length) {
+      showIppNote("Generate the IPP report first.", "error");
+      return;
+    }
+    const csv = toCsv(
+      ippResults,
+      ["Employee Code", "Employee Name", "Selected Role", "Last Working Date", "Calculation", "Final IPP"],
+      (row) => [row.employeeCode, row.employeeName, row.role, displayIppDate(row.scheduledDate), row.calculation, row.finalIpp]
+    );
+    downloadCsv("mtd-ipp-report.csv", csv);
+    showIppNote("IPP report has been downloaded.", "success");
   }
 
   function bindExportButtons(data) {
@@ -972,6 +1158,14 @@
 
   if (els.downloadOnboardingReport) {
     els.downloadOnboardingReport.addEventListener("click", downloadOnboardingReport);
+  }
+
+  if (els.generateIppReport) {
+    els.generateIppReport.addEventListener("click", generateIppReport);
+  }
+
+  if (els.downloadIppReport) {
+    els.downloadIppReport.addEventListener("click", downloadIppReport);
   }
 
   if (els.onboardingBody) {

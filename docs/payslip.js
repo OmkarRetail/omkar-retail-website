@@ -368,17 +368,25 @@
     try {
       saveButton.disabled = true;
       const idToken = await getOwnerDeliveryToken();
-      const payslips = [];
-      for (let index = 0; index < calculations.length; index += 1) {
-        const calc = calculations[index];
-        status(`Preparing payslip ${index + 1} of ${calculations.length} for Drive...`);
-        const fileName = payslipFileName(calc);
-        const pdfDataUri = await createPayslipPdf(calc);
-        payslips.push({ fileName, employeeName: calc.employee.name, employeeId: calc.employee.id, pdfBase64: pdfDataUri.split(",")[1] });
+      // Apps Script accepts limited request sizes. Send small batches instead of
+      // sending every PDF in one large request, which can fail silently.
+      const batchSize = 5;
+      let sent = 0;
+      for (let offset = 0; offset < calculations.length; offset += batchSize) {
+        const batchCalculations = calculations.slice(offset, offset + batchSize);
+        const payslips = [];
+        for (let index = 0; index < batchCalculations.length; index += 1) {
+          const calc = batchCalculations[index];
+          status(`Preparing payslip ${offset + index + 1} of ${calculations.length} for Drive...`);
+          const fileName = payslipFileName(calc);
+          const pdfDataUri = await createPayslipPdf(calc);
+          payslips.push({ fileName, employeeName: calc.employee.name, employeeId: calc.employee.id, pdfBase64: pdfDataUri.split(",")[1] });
+        }
+        status(`Sending payslips ${offset + 1}–${offset + payslips.length} of ${calculations.length} to Drive...`);
+        await fetch(endpoint, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ idToken, salaryMonth: $("cycleMonth").value, deliveryMode: "drive-batch", payslips }) });
+        sent += payslips.length;
       }
-      status(`Sending ${payslips.length} payslip${payslips.length === 1 ? "" : "s"} to Drive...`);
-      await fetch(endpoint, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ idToken, salaryMonth: $("cycleMonth").value, deliveryMode: "drive-batch", payslips }) });
-      status(`${payslips.length} payslip${payslips.length === 1 ? "" : "s"} sent for saving to Drive. Open the month folder in a few moments to confirm the files are there.`, "success");
+      status(`${sent} payslip save request${sent === 1 ? " was" : "s were"} sent to Drive in small batches. Open the month folder in a few moments to confirm the files are there.`, "success");
     } catch (error) {
       console.error("Batch Drive save failed", error);
       status(error.message || "Unable to prepare the payslips for Drive.", "error");
